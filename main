@@ -364,6 +364,23 @@ _0xd5fe._0x51c3 = function(parent, rotation)
     })
 end
 
+-- RGB -> HSV helper
+_0xd5fe._0x33dd = function(color)
+    local r, g, b = color.R, color.G, color.B
+    local max, min = math.max(r, g, b), math.min(r, g, b)
+    local h, s, v = 0, 0, max
+    local d = max - min
+    s = max == 0 and 0 or d / max
+    if max ~= min then
+        if max == r then h = (g - b) / d + (g < b and 6 or 0)
+        elseif max == g then h = (b - r) / d + 2
+        elseif max == b then h = (r - g) / d + 4
+        end
+        h = h / 6
+    end
+    return h, s, v
+end
+
 _0xd5fe._0x02b5 = function(trigger, object)
     local dragging, dragInput, dragStart, startPos
     trigger.InputBegan:Connect(function(input)
@@ -447,22 +464,12 @@ function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
         TextWrapped = true
     })
 
-    local Bar = _0xd5fe._0x36b7("Frame", {
-        Parent = Notif,
-        BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
-        Position = UDim2.new(0, 0, 0, 0),
-        Size = UDim2.new(0, 3, 1, 0),
-        BorderSizePixel = 0
-    })
-    _0xd5fe._0x36b7("UICorner", {Parent = Bar, CornerRadius = UDim.new(0, 6)})
-    _0xd5fe._0x51c3(Bar, 90)
-
     -- Duration progress bar (shrinks right-to-left along the bottom)
     local Progress = _0xd5fe._0x36b7("Frame", {
         Parent = Notif,
         BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
-        Position = UDim2.new(0, 3, 1, -2),
-        Size = UDim2.new(1, -3, 0, 2),
+        Position = UDim2.new(0, 0, 1, -2),
+        Size = UDim2.new(1, 0, 0, 2),
         BorderSizePixel = 0
     })
     _0xd5fe._0x51c3(Progress, 0)
@@ -480,7 +487,9 @@ function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
     ContentLbl.Size = UDim2.new(1, -62, 0, contentHeight)
 
     _0xd5fe._0xa4bd:Create(Notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -10, 0, notifHeight)}):Play()
-    _0xd5fe._0xa4bd:Create(Progress, TweenInfo.new(Duration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 2)}):Play()
+    task.delay(0.3, function()
+        _0xd5fe._0xa4bd:Create(Progress, TweenInfo.new(math.max(Duration - 0.3, 0.1), Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 2)}):Play()
+    end)
     task.delay(Duration, function()
         _0xd5fe._0xa4bd:Create(Notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -10, 0, 0)}):Play()
         task.wait(0.3)
@@ -883,13 +892,28 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     _0xd5fe._0x02b5(Topbar, Main)
     
     local hasLogo = Logo and Logo ~= ""
-    
+
+    -- Left cluster: logo | title | divider | current tab name (KH style)
+    local TopLeft = _0xd5fe._0x36b7("Frame", {
+        Parent = Topbar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 16, 0, 0),
+        Size = UDim2.new(1, -70, 1, 0),
+        ZIndex = 2
+    })
+    _0xd5fe._0x36b7("UIListLayout", {
+        Parent = TopLeft,
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 12),
+        VerticalAlignment = Enum.VerticalAlignment.Center
+    })
+
     if hasLogo then
-        local LogoImg = _0xd5fe._0x36b7("ImageLabel", {
-            Parent = Topbar,
+        _0xd5fe._0x36b7("ImageLabel", {
+            Parent = TopLeft,
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, 15, 0.5, -15),
-            Size = UDim2.new(0, 30, 0, 30),
+            Size = UDim2.new(0, 28, 0, 28),
+            LayoutOrder = 1,
             Image = Logo,
             ScaleType = Enum.ScaleType.Fit,
             ZIndex = 2
@@ -897,17 +921,41 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     end
 
     local TopTitle = _0xd5fe._0x36b7("TextLabel", {
-        Parent = Topbar,
+        Parent = TopLeft,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, hasLogo and 55 or 20, 0, 0),
-        Size = UDim2.new(1, hasLogo and -100 or -65, 1, 0),
+        AutomaticSize = Enum.AutomaticSize.X,
+        Size = UDim2.new(0, 0, 1, 0),
+        LayoutOrder = 2,
         Font = _0xd5fe._0x0e5f.FontBold,
         Text = Title,
         TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
-        TextSize = 19,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextSize = 17,
         ZIndex = 2
     })
+
+    local TopSep = _0xd5fe._0x36b7("Frame", {
+        Parent = TopLeft,
+        BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Outline,
+        Size = UDim2.new(0, 1, 0, 18),
+        LayoutOrder = 3,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+        Visible = false
+    })
+
+    local TopTabLabel = _0xd5fe._0x36b7("TextLabel", {
+        Parent = TopLeft,
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.X,
+        Size = UDim2.new(0, 0, 1, 0),
+        LayoutOrder = 4,
+        Font = _0xd5fe._0x0e5f.Font,
+        Text = "",
+        TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+        TextSize = 14,
+        ZIndex = 2
+    })
+    _0xd5fe._0x0e5f.TopTabLabel = TopTabLabel
     
     local MinBtn = _0xd5fe._0x36b7("TextButton", {
         Parent = Topbar,
@@ -940,35 +988,43 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         end
     end)
 
-    -- Sidebar
+    -- Sidebar (slim icon rail, KH style)
+    local RAIL_WIDTH = 56
+
+    -- Hairline dividers: under topbar + right of rail
+    _0xd5fe._0x36b7("Frame", {Parent = Main, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Outline, Position = UDim2.new(0, 0, 0, 45), Size = UDim2.new(1, 0, 0, 1), BorderSizePixel = 0})
+    _0xd5fe._0x36b7("Frame", {Parent = Main, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Outline, Position = UDim2.new(0, RAIL_WIDTH, 0, 46), Size = UDim2.new(0, 1, 1, -46), BorderSizePixel = 0})
+
     local Sidebar = _0xd5fe._0x36b7("Frame", {
         Name = "Sidebar",
         Parent = Main,
-        BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Sidebar,
-        BackgroundTransparency = Acrylic and 0.3 or 0,
-        Position = UDim2.new(0, 0, 0, 45),
-        Size = UDim2.new(0, 200, 1, -45),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 46),
+        Size = UDim2.new(0, RAIL_WIDTH, 1, -46),
         BorderSizePixel = 0
     })
-    _0xd5fe._0x36b7("UICorner", {Parent = Sidebar, CornerRadius = UDim.new(0, 8)})
-    _0xd5fe._0x36b7("Frame", {Parent = Sidebar, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Sidebar, BackgroundTransparency = Acrylic and 0.3 or 0, Size = UDim2.new(1,0,0,10), Position = UDim2.new(0,0,0,0), BorderSizePixel = 0})
 
     local TabContainer = _0xd5fe._0x36b7("ScrollingFrame", {
         Parent = Sidebar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 10, 0, 10),
-        Size = UDim2.new(1, -20, 1, -20),
+        Position = UDim2.new(0, 0, 0, 12),
+        Size = UDim2.new(1, 0, 1, -24),
         ScrollBarThickness = 0,
         BorderSizePixel = 0
     })
-    _0xd5fe._0x36b7("UIListLayout", {Parent = TabContainer, Padding = UDim.new(0, 6)})
+    _0xd5fe._0x36b7("UIListLayout", {
+        Parent = TabContainer,
+        Padding = UDim.new(0, 10),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
 
     local Content = _0xd5fe._0x36b7("Frame", {
         Name = "Content",
         Parent = Main,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 215, 0, 55),
-        Size = UDim2.new(1, -225, 1, -65)
+        Position = UDim2.new(0, RAIL_WIDTH + 14, 0, 56),
+        Size = UDim2.new(1, -(RAIL_WIDTH + 26), 1, -66)
     })
 
     _0xd5fe._0x8efd.InputBegan:Connect(function(input)
@@ -982,53 +1038,104 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     end)
 
     local WindowObj = {}
-    
+    local ActiveTabBtn = nil
+
+    -- Floating popup panel (toggle settings menus / inline color pickers)
+    local function CreatePopupPanel(width, fixedHeight)
+        local Panel = _0xd5fe._0x36b7("CanvasGroup", {
+            Parent = ScreenGui,
+            BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section,
+            Size = UDim2.new(0, width, 0, fixedHeight or 0),
+            AutomaticSize = fixedHeight and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
+            GroupTransparency = 1,
+            Visible = false,
+            BorderSizePixel = 0,
+            ZIndex = 300
+        })
+        _0xd5fe._0x36b7("UICorner", {Parent = Panel, CornerRadius = UDim.new(0, 10)})
+        _0xd5fe._0x36b7("UIStroke", {Parent = Panel, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
+
+        local obj = { Gui = Panel, Open = false }
+        local outsideConn = nil
+
+        function obj:Hide()
+            if not self.Open then return end
+            self.Open = false
+            self._closedAt = tick()
+            if outsideConn then outsideConn:Disconnect() outsideConn = nil end
+            _0xd5fe._0xa4bd:Create(Panel, TweenInfo.new(0.15), {GroupTransparency = 1}):Play()
+            task.delay(0.15, function() if not obj.Open then Panel.Visible = false end end)
+        end
+
+        function obj:Show(anchorPos)
+            local screenSize = workspace.CurrentCamera.ViewportSize
+            local panelH = fixedHeight or math.max(Panel.AbsoluteSize.Y, 60)
+            local x = math.clamp(anchorPos.X, 10, screenSize.X - width - 10)
+            local y = math.clamp(anchorPos.Y, 10, screenSize.Y - panelH - 10)
+            Panel.Position = UDim2.new(0, x, 0, y + 8)
+            Panel.Visible = true
+            self.Open = true
+            _0xd5fe._0xa4bd:Create(Panel, TweenInfo.new(0.22, Enum.EasingStyle.Quart), {GroupTransparency = 0, Position = UDim2.new(0, x, 0, y)}):Play()
+            task.defer(function()
+                if outsideConn then outsideConn:Disconnect() end
+                outsideConn = _0xd5fe._0x8efd.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local p = _0xd5fe._0x8efd:GetMouseLocation()
+                        local ap, asz = Panel.AbsolutePosition, Panel.AbsoluteSize
+                        if p.X < ap.X or p.X > ap.X + asz.X or p.Y < ap.Y or p.Y > ap.Y + asz.Y then
+                            obj:Hide()
+                        end
+                    end
+                end)
+            end)
+        end
+
+        function obj:Toggle(anchorPos)
+            if self.Open then
+                self:Hide()
+            elseif tick() - (self._closedAt or 0) > 0.25 then
+                self:Show(anchorPos)
+            end
+        end
+
+        return obj
+    end
+
     function WindowObj:AddTab(Name, IconId)
+        -- Icon-only rail button (KH style): no background, no corners, just tint
         local TabBtn = _0xd5fe._0x36b7("TextButton", {
             Parent = TabContainer,
-            BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
-            Size = UDim2.new(1, 0, 0, 36),
-            AutoButtonColor = false,
-            Text = "",
-            BackgroundTransparency = 1
-        })
-        _0xd5fe._0x36b7("UICorner", {Parent = TabBtn, CornerRadius = UDim.new(0, 8)})
-        
-        -- Purple indicator bar on left
-        local TabIndicator = _0xd5fe._0x36b7("Frame", {
-            Parent = TabBtn,
-            BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
-            Size = UDim2.new(0, 3, 0, 18),
-            Position = UDim2.new(0, 0, 0.5, -9),
             BackgroundTransparency = 1,
-            BorderSizePixel = 0
+            Size = UDim2.new(0, 40, 0, 40),
+            AutoButtonColor = false,
+            Text = ""
         })
-        _0xd5fe._0x36b7("UICorner", {Parent = TabIndicator, CornerRadius = UDim.new(0, 2)})
-        
-        -- Tab Icon
+
         local TabIcon = nil
+        local TabLetter = nil
         if IconId then
             TabIcon = _0xd5fe._0x36b7("ImageLabel", {
                 Parent = TabBtn,
+                Name = "Ico",
                 BackgroundTransparency = 1,
-                Position = UDim2.new(0, 12, 0.5, -9),
-                Size = UDim2.new(0, 18, 0, 18),
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.new(0.5, 0, 0.5, 0),
+                Size = UDim2.new(0, 20, 0, 20),
                 Image = IconId,
                 ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim
             })
+        else
+            TabLetter = _0xd5fe._0x36b7("TextLabel", {
+                Parent = TabBtn,
+                Name = "Ltr",
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                Text = string.upper(string.sub(Name, 1, 1)),
+                Font = _0xd5fe._0x0e5f.FontBold,
+                TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+                TextSize = 17
+            })
         end
-        
-        local TitleLbl = _0xd5fe._0x36b7("TextLabel", {
-            Parent = TabBtn,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(0, IconId and 38 or 14, 0, 0),
-            Size = UDim2.new(1, IconId and -38 or -14, 1, 0),
-            Text = Name,
-            Font = _0xd5fe._0x0e5f.Font,
-            TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
-            TextSize = 14,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
         
         local TabPage = _0xd5fe._0x36b7("Frame", {
             Parent = Content,
@@ -1066,29 +1173,49 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         _0xd5fe._0x36b7("UIListLayout", {Parent = Right, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder})
         
         local function Activate()
+            -- Dim every rail icon back to inactive
             for _, v in pairs(TabContainer:GetChildren()) do
-                if v:IsA("TextButton") then 
-                     _0xd5fe._0xa4bd:Create(v, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-                     local titleLabel = v:FindFirstChild("TextLabel")
-                     if titleLabel then 
-                         _0xd5fe._0xa4bd:Create(titleLabel, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 14}):Play()
-                     end
-                     local indicator = v:FindFirstChild("Frame")
-                     if indicator then _0xd5fe._0xa4bd:Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play() end
-                     local icon = v:FindFirstChild("ImageLabel")
-                     if icon then _0xd5fe._0xa4bd:Create(icon, TweenInfo.new(0.2), {ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end
+                if v:IsA("TextButton") then
+                     local ico = v:FindFirstChild("Ico")
+                     if ico then _0xd5fe._0xa4bd:Create(ico, TweenInfo.new(0.2), {ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(0, 20, 0, 20)}):Play() end
+                     local ltr = v:FindFirstChild("Ltr")
+                     if ltr then _0xd5fe._0xa4bd:Create(ltr, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end
                 end
             end
-            _0xd5fe._0xa4bd:Create(TabBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.35}):Play()
-            _0xd5fe._0xa4bd:Create(TitleLbl, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 15}):Play()
-            _0xd5fe._0xa4bd:Create(TabIndicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
-            if TabIcon then _0xd5fe._0xa4bd:Create(TabIcon, TweenInfo.new(0.2), {ImageColor3 = _0xd5fe._0x0e5f.AccentColor}):Play() end
-            
+            ActiveTabBtn = TabBtn
+
+            -- Tint + subtle pop on the active icon
+            if TabIcon then
+                _0xd5fe._0xa4bd:Create(TabIcon, TweenInfo.new(0.25, Enum.EasingStyle.Back), {ImageColor3 = _0xd5fe._0x0e5f.AccentColor, Size = UDim2.new(0, 22, 0, 22)}):Play()
+            end
+            if TabLetter then
+                _0xd5fe._0xa4bd:Create(TabLetter, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
+            end
+
+            -- Topbar shows the active tab name
+            if _0xd5fe._0x0e5f.TopTabLabel then
+                _0xd5fe._0x0e5f.TopTabLabel.Text = Name
+            end
+            TopSep.Visible = true
+
             for _, v in pairs(Content:GetChildren()) do v.Visible = false end
             TabPage.Visible = true
         end
         TabBtn.MouseButton1Click:Connect(Activate)
-        
+
+        TabBtn.MouseEnter:Connect(function()
+            if ActiveTabBtn ~= TabBtn then
+                if TabIcon then _0xd5fe._0xa4bd:Create(TabIcon, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end
+                if TabLetter then _0xd5fe._0xa4bd:Create(TabLetter, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end
+            end
+        end)
+        TabBtn.MouseLeave:Connect(function()
+            if ActiveTabBtn ~= TabBtn then
+                if TabIcon then _0xd5fe._0xa4bd:Create(TabIcon, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end
+                if TabLetter then _0xd5fe._0xa4bd:Create(TabLetter, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end
+            end
+        end)
+
         if #TabContainer:GetChildren() == 2 then Activate() end
 
         local Tab = { HasSubTabs = false }
@@ -1231,24 +1358,26 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
             local Group = {}
             Group._container = Container
-            
+            local ParentTab = self
+
             function Group:AddToggle(Text, Default, Callback, TooltipOptions)
                 local Frame = _0xd5fe._0x36b7("TextButton", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,22), Text = "", AutoButtonColor = false})
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 13, TextXAlignment=Enum.TextXAlignment.Left, Size = UDim2.new(1,-45,1,0)})
                 
-                -- Toggle switch (pill shape)
-                local ToggleTrack = _0xd5fe._0x36b7("Frame", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(0,36,0,18), Position = UDim2.new(1,-36,0,2), BorderSizePixel = 0})
+                -- Toggle switch (pill shape, KH style: muted purple track when off)
+                local OffTrackColor = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.14)
+                local OffKnobColor = Color3.fromRGB(145, 145, 165)
+
+                local ToggleTrack = _0xd5fe._0x36b7("Frame", {Parent = Frame, BackgroundColor3 = OffTrackColor, Size = UDim2.new(0,36,0,18), Position = UDim2.new(1,-36,0,2), BorderSizePixel = 0})
                 _0xd5fe._0x36b7("UICorner", {Parent = ToggleTrack, CornerRadius = UDim.new(1, 0)})
                 local TrackGrad = _0xd5fe._0x51c3(ToggleTrack, 90)
                 TrackGrad.Enabled = false
-                local TrackStroke = _0xd5fe._0x36b7("UIStroke", {Parent = ToggleTrack, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
-                
+
                 -- Toggle knob (circle)
-                local ToggleKnob = _0xd5fe._0x36b7("Frame", {Parent = ToggleTrack, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text, Size = UDim2.new(0,14,0,14), Position = UDim2.new(0,2,0,2), BorderSizePixel = 0})
+                local ToggleKnob = _0xd5fe._0x36b7("Frame", {Parent = ToggleTrack, BackgroundColor3 = OffKnobColor, Size = UDim2.new(0,14,0,14), Position = UDim2.new(0,2,0,2), BorderSizePixel = 0})
                 _0xd5fe._0x36b7("UICorner", {Parent = ToggleKnob, CornerRadius = UDim.new(1, 0)})
-                
-                Frame.MouseEnter:Connect(function() 
-                    _0xd5fe._0xa4bd:Create(TrackStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play()
+
+                Frame.MouseEnter:Connect(function()
                     -- Show tooltip if options provided
                     if TooltipOptions and TooltipOptions.Text then
                         local tooltipType = TooltipOptions.Type or "info"
@@ -1262,8 +1391,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         _0xd5fe._0x0e5f.Tooltip.Visible = true
                     end
                 end)
-                Frame.MouseLeave:Connect(function() 
-                    _0xd5fe._0xa4bd:Create(TrackStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play()
+                Frame.MouseLeave:Connect(function()
                     -- Hide tooltip
                     if TooltipOptions and TooltipOptions.Text then
                         _0xd5fe._0x0e5f.Tooltip.Visible = false
@@ -1283,31 +1411,155 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         if State then
                             ToggleTrack.BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor
                             ToggleKnob.Position = UDim2.new(1, -16, 0, 2)
+                            ToggleKnob.BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text
                             Label.TextColor3 = _0xd5fe._0x0e5f.Theme.Text
                         else
-                            ToggleTrack.BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element
+                            ToggleTrack.BackgroundColor3 = OffTrackColor
                             ToggleKnob.Position = UDim2.new(0, 2, 0, 2)
+                            ToggleKnob.BackgroundColor3 = OffKnobColor
                             Label.TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim
                         end
                     else
-                        if State then 
-                            _0xd5fe._0xa4bd:Create(ToggleTrack, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play() 
-                            _0xd5fe._0xa4bd:Create(ToggleKnob, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Position = UDim2.new(1, -16, 0, 2)}):Play()
+                        if State then
+                            _0xd5fe._0xa4bd:Create(ToggleTrack, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
+                            _0xd5fe._0xa4bd:Create(ToggleKnob, TweenInfo.new(0.25, Enum.EasingStyle.Back), {Position = UDim2.new(1, -16, 0, 2), BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play()
                             _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play()
-                        else 
-                            _0xd5fe._0xa4bd:Create(ToggleTrack, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play()
-                            _0xd5fe._0xa4bd:Create(ToggleKnob, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Position = UDim2.new(0, 2, 0, 2)}):Play()
+                        else
+                            _0xd5fe._0xa4bd:Create(ToggleTrack, TweenInfo.new(0.2), {BackgroundColor3 = OffTrackColor}):Play()
+                            _0xd5fe._0xa4bd:Create(ToggleKnob, TweenInfo.new(0.25, Enum.EasingStyle.Back), {Position = UDim2.new(0, 2, 0, 2), BackgroundColor3 = OffKnobColor}):Play()
                             _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play()
                         end
                     end
                     pcall(Callback, State)
                 end
-                
+
                 ToggleObj.Set = function(self, v) State = v self.Value = v Update(true) end
-                
+
                 Frame.MouseButton1Click:Connect(function() State = not State Update() end)
                 Update()
-                
+
+                -- Inline extras stack rightward-in from the pill (KH style):
+                -- [label] ... [•••] [swatch] [pill]
+                local nextX = -44
+                local function ReflowLabel()
+                    Label.Size = UDim2.new(1, nextX - 4, 1, 0)
+                end
+
+                -- toggle:AddColorPicker(defaultColor, callback) -> inline swatch + popup picker
+                ToggleObj.AddColorPicker = function(_, DefaultColor, PickerCallback)
+                    DefaultColor = DefaultColor or Color3.new(1, 1, 1)
+                    local h, s, v = _0xd5fe._0x33dd(DefaultColor)
+                    local cur = {H = h, S = s, V = v}
+
+                    local Swatch = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = DefaultColor, Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, nextX - 16, 0, 3), Text = "", AutoButtonColor = false, BorderSizePixel = 0})
+                    _0xd5fe._0x36b7("UICorner", {Parent = Swatch, CornerRadius = UDim.new(0, 4)})
+                    _0xd5fe._0x36b7("UIStroke", {Parent = Swatch, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
+                    nextX = nextX - 22
+                    ReflowLabel()
+
+                    local CPObj = {Type = "ColorPicker", Value = DefaultColor}
+
+                    local PANEL_W = 200
+                    local Panel = CreatePopupPanel(PANEL_W, 166)
+
+                    local SVPicker = _0xd5fe._0x36b7("ImageButton", {Parent = Panel.Gui, BackgroundColor3 = Color3.fromHSV(cur.H, 1, 1), Position = UDim2.new(0, 12, 0, 12), Size = UDim2.new(1, -24, 0, 120), Image = "rbxassetid://4155801252", BorderSizePixel = 0, AutoButtonColor = false, ZIndex = 301})
+                    _0xd5fe._0x36b7("UICorner", {Parent = SVPicker, CornerRadius = UDim.new(0, 6)})
+
+                    local SVCursor = _0xd5fe._0x36b7("Frame", {Parent = SVPicker, BackgroundColor3 = Color3.new(1,1,1), Size = UDim2.new(0, 10, 0, 10), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(cur.S, 0, 1 - cur.V, 0), BorderSizePixel = 0, ZIndex = 302})
+                    _0xd5fe._0x36b7("UICorner", {Parent = SVCursor, CornerRadius = UDim.new(1, 0)})
+                    _0xd5fe._0x36b7("UIStroke", {Parent = SVCursor, Color = Color3.new(0, 0, 0), Thickness = 2})
+
+                    local HuePicker = _0xd5fe._0x36b7("ImageButton", {Parent = Panel.Gui, BackgroundColor3 = Color3.new(1,1,1), Position = UDim2.new(0, 12, 0, 140), Size = UDim2.new(1, -24, 0, 14), Image = "rbxassetid://3641079629", ScaleType = Enum.ScaleType.Crop, BorderSizePixel = 0, AutoButtonColor = false, ZIndex = 301})
+                    _0xd5fe._0x36b7("UICorner", {Parent = HuePicker, CornerRadius = UDim.new(0, 4)})
+
+                    local HueCursor = _0xd5fe._0x36b7("Frame", {Parent = HuePicker, BackgroundColor3 = Color3.new(1,1,1), Size = UDim2.new(0, 5, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(cur.H, 0, 0.5, 0), BorderSizePixel = 0, ZIndex = 302})
+                    _0xd5fe._0x36b7("UICorner", {Parent = HueCursor, CornerRadius = UDim.new(0, 2)})
+                    _0xd5fe._0x36b7("UIStroke", {Parent = HueCursor, Color = Color3.new(0, 0, 0), Thickness = 1})
+
+                    local function Apply()
+                        local col = Color3.fromHSV(cur.H, cur.S, cur.V)
+                        Swatch.BackgroundColor3 = col
+                        SVPicker.BackgroundColor3 = Color3.fromHSV(cur.H, 1, 1)
+                        SVCursor.Position = UDim2.new(cur.S, 0, 1 - cur.V, 0)
+                        HueCursor.Position = UDim2.new(cur.H, 0, 0.5, 0)
+                        CPObj.Value = col
+                        pcall(PickerCallback, col)
+                    end
+
+                    local SVDragging, HueDragging = false, false
+                    SVPicker.InputBegan:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            SVDragging = true
+                            local pos = (Vector2.new(input.Position.X, input.Position.Y) - SVPicker.AbsolutePosition) / SVPicker.AbsoluteSize
+                            cur.S = math.clamp(pos.X, 0, 1)
+                            cur.V = math.clamp(1 - pos.Y, 0, 1)
+                            Apply()
+                        end
+                    end)
+                    HuePicker.InputBegan:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            HueDragging = true
+                            cur.H = math.clamp((input.Position.X - HuePicker.AbsolutePosition.X) / HuePicker.AbsoluteSize.X, 0, 1)
+                            Apply()
+                        end
+                    end)
+                    _0xd5fe._0x8efd.InputChanged:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseMovement then
+                            if SVDragging then
+                                local pos = (Vector2.new(input.Position.X, input.Position.Y) - SVPicker.AbsolutePosition) / SVPicker.AbsoluteSize
+                                cur.S = math.clamp(pos.X, 0, 1)
+                                cur.V = math.clamp(1 - pos.Y, 0, 1)
+                                Apply()
+                            elseif HueDragging then
+                                cur.H = math.clamp((input.Position.X - HuePicker.AbsolutePosition.X) / HuePicker.AbsoluteSize.X, 0, 1)
+                                Apply()
+                            end
+                        end
+                    end)
+                    _0xd5fe._0x8efd.InputEnded:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            SVDragging = false
+                            HueDragging = false
+                        end
+                    end)
+
+                    CPObj.Set = function(self, color)
+                        cur.H, cur.S, cur.V = _0xd5fe._0x33dd(color)
+                        Apply()
+                    end
+                    CPObj.Get = function() return Color3.fromHSV(cur.H, cur.S, cur.V) end
+
+                    Swatch.MouseButton1Click:Connect(function()
+                        local p = Swatch.AbsolutePosition
+                        Panel:Toggle(Vector2.new(p.X - PANEL_W + 16, p.Y + 24))
+                    end)
+
+                    _0xd5fe._0x0e5f.Options[Text .. " Color"] = CPObj
+                    return CPObj
+                end
+
+                -- toggle:AddSettings(menuName?) -> "•••" button opening a popup group
+                -- (returned object supports AddToggle/AddSlider/AddDropdown/etc.)
+                ToggleObj.AddSettings = function(_, MenuName)
+                    local Dots = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundTransparency = 1, Size = UDim2.new(0, 24, 0, 22), Position = UDim2.new(1, nextX - 24, 0, 0), Text = "•••", Font = _0xd5fe._0x0e5f.FontBold, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 10, AutoButtonColor = false})
+                    nextX = nextX - 28
+                    ReflowLabel()
+
+                    Dots.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
+                    Dots.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
+
+                    local PANEL_W = 220
+                    local Panel = CreatePopupPanel(PANEL_W)
+                    local SettingsGroup = ParentTab:CreateGroupbox(Panel.Gui, MenuName or Text)
+
+                    Dots.MouseButton1Click:Connect(function()
+                        local p = Dots.AbsolutePosition
+                        Panel:Toggle(Vector2.new(p.X - PANEL_W + 28, p.Y + 26))
+                    end)
+
+                    return SettingsGroup
+                end
+
                 _0xd5fe._0x0e5f.Options[Text] = ToggleObj
                 return ToggleObj
             end

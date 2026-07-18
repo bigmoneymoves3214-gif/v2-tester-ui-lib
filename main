@@ -28,6 +28,9 @@ _0xd5fe._0x785d = game:GetService("Players")
 _0xd5fe._0x740e = game:GetService("HttpService")
 
 _0xd5fe._0x0e5f = {
+    -- bump this when publishing; print(Library.Version) to confirm which build
+    -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
+    Version = "v4.0",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -925,9 +928,13 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         SortOrder = Enum.SortOrder.LayoutOrder
     })
 
+    -- NOTE: names are prefixed A_/B_/C_/D_ so the cluster orders correctly under
+    -- BOTH SortOrder.LayoutOrder and SortOrder.Name (Name is Roblox's default and
+    -- would otherwise sort "Frame" (the separator) ahead of the logo).
     if hasLogo then
         _0xd5fe._0x36b7("ImageLabel", {
             Parent = TopLeft,
+            Name = "A_Logo",
             BackgroundTransparency = 1,
             Size = UDim2.new(0, 28, 0, 28),
             LayoutOrder = 1,
@@ -939,6 +946,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
     local TopTitle = _0xd5fe._0x36b7("TextLabel", {
         Parent = TopLeft,
+        Name = "B_Title",
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.X,
         Size = UDim2.new(0, 0, 1, 0),
@@ -952,6 +960,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
     local TopSep = _0xd5fe._0x36b7("Frame", {
         Parent = TopLeft,
+        Name = "C_Sep",
         BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Outline,
         Size = UDim2.new(0, 1, 0, 18),
         LayoutOrder = 3,
@@ -1770,7 +1779,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         Position = UDim2.new(1, nextX - 42, 0, 2),
                         Text = (BoundKey and BoundKey.Name) or "---",
                         Font = _0xd5fe._0x0e5f.FontMono,
-                        TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+                        TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
                         TextSize = 10,
                         AutoButtonColor = false,
                         BorderSizePixel = 0
@@ -1778,8 +1787,8 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     nextX = nextX - 48
                     ReflowLabel()
 
-                    Chip.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.25)}):Play() end)
-                    Chip.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play() end)
+                    Chip.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.25)}):Play() end)
+                    Chip.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play() end)
 
                     local KeyObj = {Type = "Keybind", Value = BoundKey}
                     KeyObj.Set = function(self, key)
@@ -1810,15 +1819,25 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     return KeyObj
                 end
 
-                -- toggle:AddSettings(menuName?) -> "•••" button opening a popup group
+                -- toggle:AddSettings(menuName?) -> gear button opening a popup group
                 -- (returned object supports AddToggle/AddSlider/AddDropdown/etc.)
                 ToggleObj.AddSettings = function(_, MenuName)
-                    local Dots = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundTransparency = 1, Size = UDim2.new(0, 24, 0, 22), Position = UDim2.new(1, nextX - 24, 0, 0), Text = "•••", Font = _0xd5fe._0x0e5f.FontBold, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 10, AutoButtonColor = false})
-                    nextX = nextX - 28
+                    -- gear icon opens the settings popup
+                    local Dots = _0xd5fe._0x36b7("ImageButton", {
+                        Parent = Frame,
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(0, 16, 0, 16),
+                        Position = UDim2.new(1, nextX - 16, 0, 3),
+                        Image = _0xd5fe._0x0e5f.Icons.settings,
+                        ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+                        AutoButtonColor = false,
+                        BorderSizePixel = 0
+                    })
+                    nextX = nextX - 22
                     ReflowLabel()
 
-                    Dots.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
-                    Dots.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
+                    Dots.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
+                    Dots.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
 
                     local PANEL_W = 220
                     local Panel = CreatePopupPanel(PANEL_W)
@@ -2500,7 +2519,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,-75,1,0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
                 -- same chip styling as the inline toggle keybind
-                local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(0,52,0,18), Position = UDim2.new(1,-52,0,4), Text = (Default and Default.Name) or "---", Font = _0xd5fe._0x0e5f.FontMono, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 10, AutoButtonColor = false, BorderSizePixel = 0})
+                local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(0,52,0,18), Position = UDim2.new(1,-52,0,4), Text = (Default and Default.Name) or "---", Font = _0xd5fe._0x0e5f.FontMono, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 10, AutoButtonColor = false, BorderSizePixel = 0})
                 local BtnStroke = _0xd5fe._0x36b7("UIStroke", {Parent = Btn, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1, Transparency = 1})
                 _0xd5fe._0x99aa(Btn, 0.25)
                 

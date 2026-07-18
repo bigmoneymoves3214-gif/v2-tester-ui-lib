@@ -1029,6 +1029,19 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     local WindowObj = {}
     local ActiveTabBtn = nil
 
+    -- Full-screen layer that hosts all popups. Positioning inside this layer is
+    -- done in LAYER-LOCAL coordinates (absolute pos minus the layer's own
+    -- absolute pos), which is immune to GUI-inset / IgnoreGuiInset differences
+    -- that otherwise shift popups away from their anchor button.
+    local PopupLayer = _0xd5fe._0x36b7("Frame", {
+        Parent = ScreenGui,
+        Name = "PopupLayer",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 0),
+        Size = UDim2.new(1, 0, 1, 0),
+        ZIndex = 298
+    })
+
     -- Floating popup panel (toggle settings menus / inline color pickers)
     local function CreatePopupPanel(width, fixedHeight)
         -- Full-screen catcher behind the panel. Any click that lands here (i.e.
@@ -1036,7 +1049,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         -- lists) closes the popup. This is far more reliable than geometric
         -- hit-testing, which misfires on clipped/overflowing content.
         local Backdrop = _0xd5fe._0x36b7("TextButton", {
-            Parent = ScreenGui,
+            Parent = PopupLayer,
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 1, 0),
             Text = "",
@@ -1048,7 +1061,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         -- Panel is a TextButton so clicks on its own empty areas are consumed
         -- (and therefore never reach the backdrop / never close it).
         local Panel = _0xd5fe._0x36b7("TextButton", {
-            Parent = ScreenGui,
+            Parent = PopupLayer,
             BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section,
             Size = UDim2.new(0, width, 0, fixedHeight or 0),
             AutomaticSize = fixedHeight and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
@@ -1076,15 +1089,22 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             if not obj.Locked then obj:Hide() end
         end)
 
-        function obj:Show(anchorPos)
+        -- anchorAbs is in absolute screen space; convert to PopupLayer-local space
+        local function ToLocal(absPos)
+            local o = PopupLayer.AbsolutePosition
+            return Vector2.new(absPos.X - o.X, absPos.Y - o.Y)
+        end
+
+        function obj:Show(anchorAbs)
             self.Open = true
             Backdrop.Visible = true
             task.spawn(function()
                 local RunService = game:GetService("RunService")
 
-                -- Show at anchor (scale ~1 so AutomaticSize resolves to the real
+                -- Show at anchor (scale 1 so AutomaticSize resolves to the real
                 -- height), let it lay out, measure, then reposition + pop.
-                Panel.Position = UDim2.new(0, anchorPos.X, 0, anchorPos.Y)
+                local a = ToLocal(anchorAbs)
+                Panel.Position = UDim2.new(0, a.X, 0, a.Y)
                 PanelScale.Scale = 1
                 Panel.Visible = true
                 RunService.Heartbeat:Wait()
@@ -1100,15 +1120,17 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     end
                 end
 
-                local screenSize = workspace.CurrentCamera.ViewportSize
-                local x = math.clamp(anchorPos.X, 10, screenSize.X - width - 10)
+                -- recompute in case layout shifted, then clamp within the layer
+                a = ToLocal(anchorAbs)
+                local layer = PopupLayer.AbsoluteSize
+                local x = math.clamp(a.X, 6, math.max(6, layer.X - width - 6))
                 -- prefer opening below the anchor; only flip above if it truly
-                -- would not fit under the button
-                local y = anchorPos.Y
-                if y + panelH + 10 > screenSize.Y then
-                    y = anchorPos.Y - panelH - 34
+                -- would not fit underneath
+                local y = a.Y
+                if y + panelH + 6 > layer.Y then
+                    y = a.Y - panelH - 34
                 end
-                y = math.max(10, y)
+                y = math.max(6, y)
                 Panel.Position = UDim2.new(0, x, 0, y)
                 PanelScale.Scale = 0.9
                 _0xd5fe._0xa4bd:Create(PanelScale, TweenInfo.new(0.25, Enum.EasingStyle.Back), {Scale = 1}):Play()
@@ -1573,10 +1595,9 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     CPObj.Get = function() return Color3.fromHSV(cur.H, cur.S, cur.V) end
 
                     Swatch.MouseButton1Click:Connect(function()
-                        -- open directly below the swatch, right-aligned to it so a
-                        -- 200px panel off a right-side swatch stays over the window
+                        -- open directly below the colour swatch
                         local p = Swatch.AbsolutePosition
-                        Panel:Toggle(Vector2.new(p.X + Swatch.AbsoluteSize.X - PANEL_W, p.Y + Swatch.AbsoluteSize.Y + 6))
+                        Panel:Toggle(Vector2.new(p.X, p.Y + Swatch.AbsoluteSize.Y + 6))
                     end)
 
                     _0xd5fe._0x0e5f.Options[Text .. " Color"] = CPObj

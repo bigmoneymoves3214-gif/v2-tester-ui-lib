@@ -1041,8 +1041,6 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             BorderSizePixel = 0,
             ZIndex = 300
         })
-        _0xd5fe._0x36b7("UICorner", {Parent = Panel, CornerRadius = UDim.new(0, 10)})
-        _0xd5fe._0x36b7("UIStroke", {Parent = Panel, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
         _0xd5fe._0xfb1b(Panel, 0.4)
         local PanelScale = _0xd5fe._0x36b7("UIScale", {Parent = Panel, Scale = 1})
 
@@ -1585,9 +1583,9 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     local SettingsGroup = ParentTab:CreateGroupbox(Panel.Gui, MenuName or Text)
 
                     Dots.MouseButton1Click:Connect(function()
-                        -- open directly under the dots button, right-aligned to it
+                        -- open just below the dots, starting at the press point
                         local p = Dots.AbsolutePosition
-                        Panel:Toggle(Vector2.new(p.X + Dots.AbsoluteSize.X - PANEL_W, p.Y + Dots.AbsoluteSize.Y + 4))
+                        Panel:Toggle(Vector2.new(p.X - 8, p.Y + Dots.AbsoluteSize.Y + 4))
                     end)
 
                     return SettingsGroup
@@ -1625,23 +1623,67 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                      Type = "Slider",
                      Value = CurrentValue
                  }
-                 
+
+                 local Dragging = false
+                 local lastPulse = 0
+                 local wasAtMax = false
+
+                 -- Sonic-boom rings from the knob; intensity scales with how close
+                 -- the value is to max (bigger, faster, more opaque near the top)
+                 local function EmitPulse(t)
+                     local now = tick()
+                     -- pulse faster the higher the value
+                     if now - lastPulse < (0.16 - t * 0.1) then return end
+                     lastPulse = now
+                     local ring = _0xd5fe._0x36b7("Frame", {
+                         Parent = Knob,
+                         BackgroundTransparency = 1,
+                         AnchorPoint = Vector2.new(0.5, 0.5),
+                         Position = UDim2.new(0.5, 0, 0.5, 0),
+                         Size = UDim2.new(0, 10, 0, 10),
+                         ZIndex = 3
+                     })
+                     _0xd5fe._0x36b7("UICorner", {Parent = ring, CornerRadius = UDim.new(1, 0)})
+                     local ringStroke = _0xd5fe._0x36b7("UIStroke", {Parent = ring, Color = _0xd5fe._0x0e5f.AccentColor, Thickness = 2, Transparency = 0.55 - t * 0.45})
+                     local target = 16 + t * 30
+                     _0xd5fe._0xa4bd:Create(ring, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = UDim2.new(0, target, 0, target)}):Play()
+                     _0xd5fe._0xa4bd:Create(ringStroke, TweenInfo.new(0.4), {Transparency = 1, Thickness = 1}):Play()
+                     task.delay(0.45, function() ring:Destroy() end)
+                 end
+
                  local function Set(v, instant)
                      v = math.clamp(v, Min, Max)
                      CurrentValue = v
                      SliderObj.Value = v
+                     local t = (v - Min) / (Max - Min)
                      if instant then
-                         Fill.Size = UDim2.new((v-Min)/(Max-Min), 0, 1, 0)
+                         Fill.Size = UDim2.new(t, 0, 1, 0)
                      else
-                         _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new((v-Min)/(Max-Min), 0, 1, 0)}):Play()
+                         _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(t, 0, 1, 0)}):Play()
                      end
                      Value.Text = math.floor(v*100)/100
+
+                     if Dragging then
+                         -- reactive rings from ~35% upward
+                         if t >= 0.35 then EmitPulse(t) end
+                         -- big boom + knob punch on hitting max
+                         if t >= 1 and not wasAtMax then
+                             wasAtMax = true
+                             EmitPulse(1)
+                             task.delay(0.05, function() EmitPulse(1) end)
+                             _0xd5fe._0xa4bd:Create(Knob, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 18, 0, 18)}):Play()
+                             task.delay(0.12, function()
+                                 _0xd5fe._0xa4bd:Create(Knob, TweenInfo.new(0.2, Enum.EasingStyle.Back), {Size = UDim2.new(0, 13, 0, 13)}):Play()
+                             end)
+                         elseif t < 1 then
+                             wasAtMax = false
+                         end
+                     end
+
                      pcall(Callback, v)
                  end
-                 
+
                  SliderObj.Set = function(self, v) Set(v, true) end
-                 
-                 local Dragging = false
                  Bg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1))) end end)
                  _0xd5fe._0x8efd.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end)
                  _0xd5fe._0x8efd.InputChanged:Connect(function(i) if Dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1))) end end)

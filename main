@@ -31,8 +31,9 @@ _0xd5fe._0x0e5f = {
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
-    Font = Enum.Font.BuilderSansMedium,
-    FontBold = Enum.Font.BuilderSansBold,
+    Font = Enum.Font.BuilderSansMedium,     -- body text
+    FontBold = Enum.Font.GothamBold,        -- headers / buttons
+    FontMono = Enum.Font.RobotoMono,        -- numeric readouts / keybinds
     Theme = {
         Background = Color3.fromRGB(13, 13, 17),
         Sidebar = Color3.fromRGB(16, 16, 21),
@@ -421,8 +422,8 @@ function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
     local Icon = _0xd5fe._0x36b7("ImageLabel", {
         Parent = Notif,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 14, 0, 15),
-        Size = UDim2.new(0, 22, 0, 22),
+        Position = UDim2.new(0, 15, 0, 16),
+        Size = UDim2.new(0, 24, 0, 24),
         Image = _0xd5fe._0x0e5f.Icons[IconType] or _0xd5fe._0x0e5f.Icons.info,
         ImageColor3 = _0xd5fe._0x0e5f.AccentColor
     })
@@ -430,11 +431,11 @@ function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
     local TitleLbl = _0xd5fe._0x36b7("TextLabel", {
         Parent = Notif,
         Text = Title,
-        Position = UDim2.new(0, 52, 0, 9),
-        Size = UDim2.new(1, -62, 0, 16),
+        Position = UDim2.new(0, 52, 0, 11),
+        Size = UDim2.new(1, -64, 0, 18),
         Font = _0xd5fe._0x0e5f.FontBold,
         TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
-        TextSize = 13,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
         BackgroundTransparency = 1
     })
@@ -442,11 +443,11 @@ function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
     local ContentLbl = _0xd5fe._0x36b7("TextLabel", {
         Parent = Notif,
         Text = Content,
-        Position = UDim2.new(0, 52, 0, 27),
-        Size = UDim2.new(1, -62, 0, 1000),
+        Position = UDim2.new(0, 52, 0, 31),
+        Size = UDim2.new(1, -64, 0, 1000),
         Font = _0xd5fe._0x0e5f.Font,
         TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
-        TextSize = 12,
+        TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
         BackgroundTransparency = 1,
@@ -466,14 +467,14 @@ function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
     -- Calculate height based on content text
     local textBounds = game:GetService("TextService"):GetTextSize(
         Content,
-        12,
+        13,
         _0xd5fe._0x0e5f.Font,
-        Vector2.new(290 - 62, 1000)
+        Vector2.new(340 - 64, 1000)
     )
-    local contentHeight = math.max(textBounds.Y, 14)
-    local notifHeight = math.max(52, 27 + contentHeight + 12)
+    local contentHeight = math.max(textBounds.Y, 15)
+    local notifHeight = math.max(60, 31 + contentHeight + 14)
 
-    ContentLbl.Size = UDim2.new(1, -62, 0, contentHeight)
+    ContentLbl.Size = UDim2.new(1, -64, 0, contentHeight)
 
     _0xd5fe._0xa4bd:Create(Notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -10, 0, notifHeight)}):Play()
     task.delay(0.3, function()
@@ -625,10 +626,10 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     _0xd5fe._0xd4c2 = _0xd5fe._0x36b7("Frame", {
         Parent = ScreenGui,
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -310, 1, -310),
-        Size = UDim2.new(0, 300, 0, 300)
+        Position = UDim2.new(1, -360, 1, -430),
+        Size = UDim2.new(0, 350, 0, 420)
     })
-    _0xd5fe._0x36b7("UIListLayout", {Parent = _0xd5fe._0xd4c2, Padding = UDim.new(0, 5), VerticalAlignment = Enum.VerticalAlignment.Bottom})
+    _0xd5fe._0x36b7("UIListLayout", {Parent = _0xd5fe._0xd4c2, Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Bottom})
 
     -- Custom Cursor
     local CustomCursor = _0xd5fe._0x36b7("ImageLabel", {
@@ -1059,7 +1060,28 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
         function obj:Show(anchorPos)
             local screenSize = workspace.CurrentCamera.ViewportSize
-            local panelH = fixedHeight or math.max(Panel.AbsoluteSize.Y, 60)
+
+            -- Compute height from content manually (AutomaticSize chains are
+            -- unreliable in some executors) and force every descendant above the
+            -- panel background regardless of the gui's ZIndexBehavior.
+            local panelH = fixedHeight
+            if not panelH then
+                local contentH = 0
+                for _, c in pairs(Panel:GetChildren()) do
+                    if c:IsA("GuiObject") and c.Name ~= "Shadow" then
+                        contentH = math.max(contentH, c.AbsoluteSize.Y)
+                    end
+                end
+                panelH = math.max(contentH, 60)
+                Panel.AutomaticSize = Enum.AutomaticSize.None
+                Panel.Size = UDim2.new(0, width, 0, panelH)
+            end
+            for _, d in pairs(Panel:GetDescendants()) do
+                if d:IsA("GuiObject") and d.Name ~= "Shadow" and d.ZIndex < 301 then
+                    d.ZIndex = d.ZIndex + 300
+                end
+            end
+
             local x = math.clamp(anchorPos.X, 10, screenSize.X - width - 10)
             local y = math.clamp(anchorPos.Y, 10, screenSize.Y - panelH - 10)
             Panel.Position = UDim2.new(0, x, 0, y)
@@ -1326,7 +1348,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BorderSizePixel = 0
             })
-            _0xd5fe._0x36b7("UICorner", {Parent = Box, CornerRadius = UDim.new(0, 10)})
+            _0xd5fe._0x36b7("UICorner", {Parent = Box, CornerRadius = UDim.new(0, 4)})
             
             local Header = _0xd5fe._0x36b7("TextLabel", {
                 Parent = Box,
@@ -1593,7 +1615,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                  _0xd5fe._0x36b7("UIStroke", {Parent = Knob, Color = Color3.fromRGB(0, 0, 0), Thickness = 1, Transparency = 0.6})
 
                  -- Value readout (plain text, no background)
-                 local Value = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = tostring(Default), TextColor3 = _0xd5fe._0x0e5f.Theme.Text, Font=_0xd5fe._0x0e5f.Font, TextSize=12, Position = UDim2.new(1,-60,0,0), Size = UDim2.new(0,60,0,16), TextXAlignment = Enum.TextXAlignment.Right})
+                 local Value = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = tostring(Default), TextColor3 = _0xd5fe._0x0e5f.Theme.Text, Font=_0xd5fe._0x0e5f.FontMono, TextSize=12, Position = UDim2.new(1,-60,0,0), Size = UDim2.new(0,60,0,16), TextXAlignment = Enum.TextXAlignment.Right})
                  
                  Bg.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
                  Bg.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
@@ -2191,7 +2213,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,26)})
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,-75,1,0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
-                local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(0,70,0,22), Position = UDim2.new(1,-70,0,2), Text = (Default and Default.Name) or "None", Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 11, AutoButtonColor = false, BorderSizePixel = 0})
+                local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(0,70,0,22), Position = UDim2.new(1,-70,0,2), Text = (Default and Default.Name) or "None", Font = _0xd5fe._0x0e5f.FontMono, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 11, AutoButtonColor = false, BorderSizePixel = 0})
                 _0xd5fe._0x36b7("UICorner", {Parent = Btn, CornerRadius = UDim.new(0,5)})
                 local BtnStroke = _0xd5fe._0x36b7("UIStroke", {Parent = Btn, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1, Transparency = 1})
                 
@@ -2219,59 +2241,86 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 end)
                 
                 Btn.MouseButton1Click:Connect(function()
-                    -- Create modal overlay with dark purple tint
+                    -- Keybind capture modal (dark dim + centered card, matches theme)
                     local Modal = _0xd5fe._0x36b7("Frame", {
                         Parent = ScreenGui,
-                        BackgroundColor3 = Color3.fromRGB(30, 20, 50),
-                        BackgroundTransparency = 0.3,
+                        BackgroundColor3 = Color3.new(0, 0, 0),
+                        BackgroundTransparency = 1,
                         Size = UDim2.new(1, 0, 1, 0),
                         ZIndex = 5000
                     })
-                    
+                    _0xd5fe._0xa4bd:Create(Modal, TweenInfo.new(0.2), {BackgroundTransparency = 0.45}):Play()
+
                     local ModalBox = _0xd5fe._0x36b7("Frame", {
                         Parent = Modal,
                         BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section,
                         Position = UDim2.new(0.5, 0, 0.5, 0),
                         AnchorPoint = Vector2.new(0.5, 0.5),
-                        Size = UDim2.new(0, 280, 0, 140),
+                        Size = UDim2.new(0, 300, 0, 170),
+                        BorderSizePixel = 0,
                         ZIndex = 5001
                     })
-                    _0xd5fe._0x36b7("UICorner", {Parent = ModalBox, CornerRadius = UDim.new(0, 8)})
-                    _0xd5fe._0x36b7("UIStroke", {Parent = ModalBox, Color = _0xd5fe._0x0e5f.AccentColor, Thickness = 2})
-                    
+                    _0xd5fe._0x36b7("UICorner", {Parent = ModalBox, CornerRadius = UDim.new(0, 10)})
+                    _0xd5fe._0xfb1b(ModalBox, 0.35)
+                    local ModalScale = _0xd5fe._0x36b7("UIScale", {Parent = ModalBox, Scale = 0.88})
+                    _0xd5fe._0xa4bd:Create(ModalScale, TweenInfo.new(0.28, Enum.EasingStyle.Back), {Scale = 1}):Play()
+
                     local ModalTitle = _0xd5fe._0x36b7("TextLabel", {
                         Parent = ModalBox,
                         BackgroundTransparency = 1,
-                        Position = UDim2.new(0, 0, 0, 15),
-                        Size = UDim2.new(1, 0, 0, 25),
-                        Text = "Please Press Your Keybind",
+                        Position = UDim2.new(0, 0, 0, 16),
+                        Size = UDim2.new(1, 0, 0, 20),
+                        Text = "Set Keybind",
                         Font = _0xd5fe._0x0e5f.FontBold,
                         TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
-                        TextSize = 16,
+                        TextSize = 15,
                         ZIndex = 5002
                     })
-                    
+
+                    -- Captured key shown in a mono chip
+                    local KeyChip = _0xd5fe._0x36b7("Frame", {
+                        Parent = ModalBox,
+                        BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
+                        Position = UDim2.new(0.5, 0, 0, 46),
+                        AnchorPoint = Vector2.new(0.5, 0),
+                        Size = UDim2.new(0, 120, 0, 34),
+                        BorderSizePixel = 0,
+                        ZIndex = 5002
+                    })
+                    _0xd5fe._0x36b7("UICorner", {Parent = KeyChip, CornerRadius = UDim.new(0, 8)})
+
+                    local KeyChipText = _0xd5fe._0x36b7("TextLabel", {
+                        Parent = KeyChip,
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(1, 0, 1, 0),
+                        Text = "...",
+                        Font = _0xd5fe._0x0e5f.FontMono,
+                        TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+                        TextSize = 15,
+                        ZIndex = 5003
+                    })
+
                     local ModalStatus = _0xd5fe._0x36b7("TextLabel", {
                         Parent = ModalBox,
                         BackgroundTransparency = 1,
-                        Position = UDim2.new(0, 0, 0, 45),
-                        Size = UDim2.new(1, 0, 0, 20),
-                        Text = "Waiting for input...",
+                        Position = UDim2.new(0, 0, 0, 88),
+                        Size = UDim2.new(1, 0, 0, 16),
+                        Text = "Press any key  ·  Esc to cancel",
                         Font = _0xd5fe._0x0e5f.Font,
                         TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
-                        TextSize = 14,
+                        TextSize = 13,
                         ZIndex = 5002
                     })
-                    
+
                     local ButtonContainer = _0xd5fe._0x36b7("Frame", {
                         Parent = ModalBox,
                         BackgroundTransparency = 1,
-                        Position = UDim2.new(0, 20, 1, -50),
-                        Size = UDim2.new(1, -40, 0, 35),
+                        Position = UDim2.new(0, 16, 1, -46),
+                        Size = UDim2.new(1, -32, 0, 32),
                         ZIndex = 5002,
                         Visible = false
                     })
-                    
+
                     local SaveBtn = _0xd5fe._0x36b7("TextButton", {
                         Parent = ButtonContainer,
                         BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
@@ -2280,13 +2329,14 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         Text = "Save",
                         Font = _0xd5fe._0x0e5f.FontBold,
                         TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
-                        TextSize = 14,
+                        TextSize = 13,
                         AutoButtonColor = false,
+                        BorderSizePixel = 0,
                         ZIndex = 5003
                     })
-                    _0xd5fe._0x36b7("UICorner", {Parent = SaveBtn, CornerRadius = UDim.new(0, 6)})
+                    _0xd5fe._0x36b7("UICorner", {Parent = SaveBtn, CornerRadius = UDim.new(0, 8)})
                     _0xd5fe._0x51c3(SaveBtn, 90)
-                    
+
                     local ResetBtn = _0xd5fe._0x36b7("TextButton", {
                         Parent = ButtonContainer,
                         BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
@@ -2295,12 +2345,12 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         Text = "Reset",
                         Font = _0xd5fe._0x0e5f.FontBold,
                         TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
-                        TextSize = 14,
+                        TextSize = 13,
                         AutoButtonColor = false,
+                        BorderSizePixel = 0,
                         ZIndex = 5003
                     })
-                    _0xd5fe._0x36b7("UICorner", {Parent = ResetBtn, CornerRadius = UDim.new(0, 6)})
-                    _0xd5fe._0x36b7("UIStroke", {Parent = ResetBtn, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
+                    _0xd5fe._0x36b7("UICorner", {Parent = ResetBtn, CornerRadius = UDim.new(0, 8)})
                     
                     local pendingKey = nil
                     local con
@@ -2313,9 +2363,10 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                                 return 
                             end
                             pendingKey = key
-                            ModalTitle.Text = "Keybind Set to " .. key.Name
-                            ModalStatus.Text = "Press Save to confirm or Reset to remove"
-                            ModalStatus.TextColor3 = _0xd5fe._0x0e5f.AccentColor
+                            KeyChipText.Text = key.Name
+                            KeyChipText.TextColor3 = _0xd5fe._0x0e5f.AccentColor
+                            _0xd5fe._0xa4bd:Create(KeyChip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.16)}):Play()
+                            ModalStatus.Text = "Save to confirm  ·  Reset to remove"
                             ButtonContainer.Visible = true
                             con:Disconnect()
                         end

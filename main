@@ -3251,7 +3251,7 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         self:BuildFolderTree()
         writefile(self.Folder .. "/settings/autoload.txt", selectedConfig)
         autoloadLbl.Text = selectedConfig
-        autoloadLbl.TextColor3 = _0xd5fe._0x0e5f.AccentColor
+        autoloadLbl.TextColor3 = T.Text
         _0xd5fe._0x0e5f:Notify("Config", "Auto-load set: " .. selectedConfig, 3, "folder")
     end)
 
@@ -3276,20 +3276,44 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         Parent = actionPanel, BackgroundTransparency = 1,
         Position = UDim2.new(0, 12, 0, 209), Size = UDim2.new(1, -24, 0, 16),
         Text = autoName, Font = _0xd5fe._0x0e5f.FontMono,
-        TextColor3 = autoName == "None" and T.TextDim or _0xd5fe._0x0e5f.AccentColor,
+        TextColor3 = autoName == "None" and T.TextDim or T.Text,
         TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd
     })
 
+    -- Host for anything else that docks into this config manager (e.g. the
+    -- community config section), stacked full-width beneath the two panels.
+    local host = mk("Frame", {
+        Parent = Root, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 42 + PANEL_H + 12),
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    mk("UIListLayout", {Parent = host, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12)})
+
+    self._cfgHost = host
+    self._cfgHostTab = tab
+    self._cfgRefresh = refreshList
+
+    -- Root grows automatically so a docked community section is never clipped
     Root.Size = UDim2.new(1, 0, 0, 42 + PANEL_H)
+    Root.AutomaticSize = Enum.AutomaticSize.Y
+
     refreshList()
 
     self:SetIgnoreIndexes({"SaveManager_ConfigName", "SaveManager_ConfigList"})
 end
 
 function _0xd5fe._0x0e5f.SaveManager:BuildCommunityConfigSection(tab, apiUrl)
-    local CommunityGroup = tab:AddLeftGroupbox("Community Configs")
-    
+    -- If the config manager was built on this same tab, dock into its layout as a
+    -- full-width section instead of dropping a half-width groupbox beside it.
+    local CommunityGroup
+    if self._cfgHost and self._cfgHostTab == tab and tab.CreateGroupbox then
+        CommunityGroup = tab:CreateGroupbox(self._cfgHost, "Community Configs")
+    else
+        CommunityGroup = tab:AddLeftGroupbox("Community Configs")
+    end
+
     local selectedCommunityConfig = nil
     local communityConfigs = {}
     local configEntryFrames = {}
@@ -3551,7 +3575,9 @@ function _0xd5fe._0x0e5f.SaveManager:BuildCommunityConfigSection(tab, apiUrl)
         _0xd5fe._0x0e5f:Notify("Community", "Saved '" .. saveName .. "' to your configs!", 3, "check")
         
         -- Refresh the SaveManager config list and upload dropdown so it appears
-        if _0xd5fe._0x0e5f.Options["SaveManager_ConfigList"] then
+        if self._cfgRefresh then
+            pcall(self._cfgRefresh)
+        elseif _0xd5fe._0x0e5f.Options["SaveManager_ConfigList"] then
             _0xd5fe._0x0e5f.Options["SaveManager_ConfigList"]:Refresh(self:RefreshConfigList())
         end
         if uploadDropdownRef and uploadDropdownRef.Refresh then

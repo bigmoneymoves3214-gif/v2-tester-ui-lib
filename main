@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.0",
+    Version = "v4.1",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -1022,12 +1022,19 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         Position = UDim2.new(0, 0, 0, 12),
         Size = UDim2.new(1, 0, 1, -24),
         ScrollBarThickness = 0,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
         BorderSizePixel = 0
     })
+    -- Centered both ways: horizontally in the rail, and vertically as a group so
+    -- the icons sit in the middle of the rail instead of stacking from the top.
+    -- (AutomaticCanvasSize keeps scrolling working if there are ever more tabs
+    -- than fit, in which case the group naturally becomes top-aligned.)
     _0xd5fe._0x36b7("UIListLayout", {
         Parent = TabContainer,
         Padding = UDim.new(0, 10),
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
         SortOrder = Enum.SortOrder.LayoutOrder
     })
 

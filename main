@@ -1615,23 +1615,20 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                  local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,44)})
                  local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = Text, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Font = _0xd5fe._0x0e5f.Font, TextSize=13, Size = UDim2.new(1,-52,0,16), TextXAlignment=Enum.TextXAlignment.Left})
 
-                 -- Square boxed track (fill-in bar)
-                 local Bg = _0xd5fe._0x36b7("Frame", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Background, Size = UDim2.new(1,0,0,12), Position = UDim2.new(0,0,0,24), BorderSizePixel = 0})
+                 -- Square boxed track (fill-in bar); same fill as the card so only
+                 -- the outline separates it
+                 local Bg = _0xd5fe._0x36b7("Frame", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section, Size = UDim2.new(1,0,0,12), Position = UDim2.new(0,0,0,24), BorderSizePixel = 0})
                  local BgStroke = _0xd5fe._0x36b7("UIStroke", {Parent = Bg, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
 
-                 local Fill = _0xd5fe._0x36b7("Frame", {Parent = Bg, BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor, Size = UDim2.new(0,0,1,0), BorderSizePixel = 0})
-                 local FillGrad = _0xd5fe._0x51c3(Fill, 0)
-                 -- Glow stroke on the fill (pulsed while dragging)
-                 local FillGlow = _0xd5fe._0x36b7("UIStroke", {Parent = Fill, Color = _0xd5fe._0x0e5f.AccentColor, Thickness = 1, Transparency = 1})
-
-                 -- Vertical handle at the fill edge (the "}")
-                 local Handle = _0xd5fe._0x36b7("Frame", {Parent = Fill, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 3, 1, 2), BorderSizePixel = 0, ZIndex = 2})
+                 -- Fill is white and fully colored by its gradient, so the gradient
+                 -- can be cycled through purple shades directly.
+                 local Accent = _0xd5fe._0x0e5f.AccentColor
+                 local RestGrad = ColorSequence.new(Accent, Accent:Lerp(Color3.new(0,0,0), 0.28))
+                 local Fill = _0xd5fe._0x36b7("Frame", {Parent = Bg, BackgroundColor3 = Color3.new(1,1,1), Size = UDim2.new(0,0,1,0), BorderSizePixel = 0})
+                 local FillGrad = _0xd5fe._0x36b7("UIGradient", {Parent = Fill, Rotation = 0, Color = RestGrad})
 
                  -- Value readout (plain mono text, no background)
                  local Value = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = tostring(Default), TextColor3 = _0xd5fe._0x0e5f.Theme.Text, Font=_0xd5fe._0x0e5f.FontMono, TextSize=12, Position = UDim2.new(1,-60,0,0), Size = UDim2.new(0,60,0,16), TextXAlignment = Enum.TextXAlignment.Right})
-
-                 Bg.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
-                 Bg.MouseLeave:Connect(function() if not Dragging then _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end end)
 
                  local CurrentValue = Default or Min
                  local SliderObj = {
@@ -1642,39 +1639,47 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                  local Dragging = false
                  local loopRunning = false
 
+                 Bg.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
+                 Bg.MouseLeave:Connect(function() if not Dragging then _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end end)
+
+                 -- Purple shades the fill cycles between while held
+                 local PLight = Accent:Lerp(Color3.fromRGB(200, 180, 255), 0.75)
+                 local PDeep  = Accent:Lerp(Color3.fromRGB(40, 20, 90), 0.6)
+                 local PViolet = Color3.fromRGB(150, 70, 255)
+
                  -- Continuous reactive loop: runs the whole time the slider is held
-                 -- (even if the mouse isn't moving). Everything targets the FILLED
-                 -- part only, and intensity ramps hard toward max.
+                 -- (even if the mouse isn't moving). Purely a color effect INSIDE
+                 -- the filled part - the gradient churns through purples faster and
+                 -- harder the closer the value is to max.
                  local function StartReactiveLoop()
                      if loopRunning then return end
                      loopRunning = true
                      task.spawn(function()
+                         local RunService = game:GetService("RunService")
                          while Dragging do
                              local t = (CurrentValue - Min) / (Max - Min)
-                             local intensity = 0.25 + t * t     -- mild low, wild near max
-                             -- fill strobes toward white then washes back to accent
-                             Fill.BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor:Lerp(Color3.new(1,1,1), math.clamp(0.15 + intensity * 0.75, 0, 0.95))
-                             _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(math.max(0.08, 0.28 - t*0.2)), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
-                             -- shimmer sweep down the fill
-                             FillGrad.Offset = Vector2.new(-1, 0)
-                             _0xd5fe._0xa4bd:Create(FillGrad, TweenInfo.new(math.max(0.12, 0.45 - t*0.35), Enum.EasingStyle.Linear), {Offset = Vector2.new(1, 0)}):Play()
-                             -- glow stroke bursts outward from the fill
-                             FillGlow.Thickness = 1 + intensity * 5
-                             FillGlow.Transparency = math.clamp(0.55 - intensity * 0.5, 0, 0.6)
-                             _0xd5fe._0xa4bd:Create(FillGlow, TweenInfo.new(math.max(0.15, 0.4 - t*0.25)), {Transparency = 1, Thickness = 1}):Play()
-                             -- handle flares white near the top
-                             if t > 0.5 then
-                                 Handle.BackgroundColor3 = Color3.new(1,1,1)
-                                 _0xd5fe._0xa4bd:Create(Handle, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play()
-                             end
-                             -- pulse rate accelerates toward max
-                             task.wait(math.max(0.05, 0.2 - t * 0.15))
+                             local amp = math.clamp(0.15 + t * t * 1.1, 0, 1)   -- swing depth
+                             local speed = 3 + t * t * 32                        -- churn rate
+                             local ph = tick() * speed
+
+                             local c1 = Accent:Lerp(PLight,  (math.sin(ph)          * 0.5 + 0.5) * amp)
+                             local c2 = Accent:Lerp(PViolet, (math.sin(ph + 2.1)    * 0.5 + 0.5) * amp)
+                             local c3 = Accent:Lerp(PDeep,   (math.sin(ph + 4.2)    * 0.5 + 0.5) * amp)
+
+                             FillGrad.Color = ColorSequence.new({
+                                 ColorSequenceKeypoint.new(0,   c1),
+                                 ColorSequenceKeypoint.new(0.5, c2),
+                                 ColorSequenceKeypoint.new(1,   c3)
+                             })
+                             -- gradient slides along the fill, faster near max
+                             FillGrad.Offset = Vector2.new((tick() * (0.4 + t * 2.5)) % 2 - 1, 0)
+
+                             RunService.RenderStepped:Wait()
                          end
-                         -- settle back to a clean fill on release
+                         -- settle back to the resting purple gradient
                          loopRunning = false
-                         _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
-                         _0xd5fe._0xa4bd:Create(FillGlow, TweenInfo.new(0.2), {Transparency = 1, Thickness = 1}):Play()
                          FillGrad.Offset = Vector2.new(0, 0)
+                         FillGrad.Color = RestGrad
                      end)
                  end
 

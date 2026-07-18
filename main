@@ -1411,7 +1411,8 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 Text = "",
                 AutomaticSize = Enum.AutomaticSize.X,
                 Size = UDim2.new(0, 0, 0, 30),
-                AutoButtonColor = false
+                AutoButtonColor = false,
+                BorderSizePixel = 0
             })
             _0xd5fe._0x36b7("UIPadding", {Parent = SubBtn, PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12)})
             _0xd5fe._0x36b7("UIListLayout", {
@@ -3039,31 +3040,27 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
     -- ---------- header ----------
     mk("TextLabel", {
         Parent = Root, BackgroundTransparency = 1,
-        Position = UDim2.new(0, 2, 0, 0), Size = UDim2.new(1, -4, 0, 22),
-        Text = "Configuration", Font = _0xd5fe._0x0e5f.FontBold,
-        TextColor3 = T.Text, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left
-    })
-    local folderLbl = mk("TextLabel", {
-        Parent = Root, BackgroundTransparency = 1,
-        Position = UDim2.new(0, 2, 0, 22), Size = UDim2.new(1, -4, 0, 16),
-        Text = self.Folder .. "/settings", Font = _0xd5fe._0x0e5f.FontMono,
-        TextColor3 = T.TextDim, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left
+        Position = UDim2.new(0, 2, 0, 0), Size = UDim2.new(1, -4, 0, 20),
+        Text = "Config Manager", Font = _0xd5fe._0x0e5f.FontBold,
+        TextColor3 = T.Text, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left
     })
     mk("Frame", {
         Parent = Root, BackgroundColor3 = T.Outline, BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0, 46), Size = UDim2.new(1, 0, 0, 1)
+        Position = UDim2.new(0, 0, 0, 30), Size = UDim2.new(1, 0, 0, 1)
     })
+
+    local PANEL_H = 240
 
     local function panel(x, w, title)
         local p = mk("Frame", {
             Parent = Root, BackgroundColor3 = T.Section, BorderSizePixel = 0,
-            Position = UDim2.new(x, x > 0 and 7 or 0, 0, 60),
-            Size = UDim2.new(w, x > 0 and -7 or -7, 0, 236)
+            Position = UDim2.new(x, x > 0 and 7 or 0, 0, 42),
+            Size = UDim2.new(w, -7, 0, PANEL_H)
         })
         mk("UICorner", {Parent = p, CornerRadius = UDim.new(0, 4)})
         mk("TextLabel", {
             Parent = p, BackgroundTransparency = 1,
-            Position = UDim2.new(0, 12, 0, 10), Size = UDim2.new(1, -24, 0, 16),
+            Position = UDim2.new(0, 12, 0, 9), Size = UDim2.new(1, -24, 0, 16),
             Text = title, Font = _0xd5fe._0x0e5f.FontBold,
             TextColor3 = T.Text, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left
         })
@@ -3074,8 +3071,8 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         return p
     end
 
-    local listPanel = panel(0, 0.58, "Saved Configs")
-    local actionPanel = panel(0.58, 0.42, "Actions")
+    local listPanel = panel(0, 0.62, "Saved Configs")
+    local actionPanel = panel(0.62, 0.38, "Actions")
 
     -- ---------- config list ----------
     local List = mk("ScrollingFrame", {
@@ -3177,18 +3174,18 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
     end)
     Box:GetPropertyChangedSignal("Text"):Connect(function() configNameValue = Box.Text end)
 
-    local btnY = 82
-    local function actionBtn(text, accent, cb)
+    -- 2-column button grid so nothing overflows the panel
+    local function actionBtn(col, row, text, accent, cb)
         local b = mk("TextButton", {
             Parent = actionPanel,
             BackgroundColor3 = accent and _0xd5fe._0x0e5f.AccentColor or T.Element,
-            Position = UDim2.new(0, 12, 0, btnY), Size = UDim2.new(1, -24, 0, 26),
+            Position = UDim2.new(col * 0.5, col == 0 and 12 or 3, 0, 82 + row * 32),
+            Size = UDim2.new(0.5, -15, 0, 26),
             Text = text, Font = _0xd5fe._0x0e5f.FontBold, TextColor3 = T.Text,
             TextSize = 12, AutoButtonColor = false, BorderSizePixel = 0
         })
         mk("UICorner", {Parent = b, CornerRadius = UDim.new(0, 4)})
         if accent then _0xd5fe._0x51c3(b, 90) end
-        btnY = btnY + 30
         local base = accent and _0xd5fe._0x0e5f.AccentColor or T.Element
         local hov = accent and Color3.fromRGB(116, 96, 255) or T.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.3)
         b.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = hov}):Play() end)
@@ -3205,7 +3202,9 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         return true
     end
 
-    actionBtn("Create", true, function()
+    local autoloadLbl
+
+    actionBtn(0, 0, "Create", true, function()
         local name = configNameValue
         if not name or name:gsub(" ", "") == "" then
             return _0xd5fe._0x0e5f:Notify("Config", "Enter a config name", 3, "error")
@@ -3218,7 +3217,7 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         refreshList()
     end)
 
-    actionBtn("Load", false, function()
+    actionBtn(1, 0, "Load", false, function()
         if not requireSelection() then return end
         local success, err = self:Load(selectedConfig)
         if not success then
@@ -3227,7 +3226,7 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         _0xd5fe._0x0e5f:Notify("Config", "Loaded: " .. selectedConfig, 3, "folder")
     end)
 
-    actionBtn("Overwrite", false, function()
+    actionBtn(0, 1, "Overwrite", false, function()
         if not requireSelection() then return end
         local success, err = self:Save(selectedConfig)
         if not success then
@@ -3236,7 +3235,7 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         _0xd5fe._0x0e5f:Notify("Config", "Overwrote: " .. selectedConfig, 3, "folder")
     end)
 
-    actionBtn("Delete", false, function()
+    actionBtn(1, 1, "Delete", false, function()
         if not requireSelection() then return end
         if self:Delete(selectedConfig) then
             _0xd5fe._0x0e5f:Notify("Config", "Deleted: " .. selectedConfig, 3, "trash")
@@ -3247,34 +3246,42 @@ function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
         end
     end)
 
-    local autoloadLbl
-    actionBtn("Set Auto-Load", false, function()
+    actionBtn(0, 2, "Auto-Load", false, function()
         if not requireSelection() then return end
         self:BuildFolderTree()
         writefile(self.Folder .. "/settings/autoload.txt", selectedConfig)
-        autoloadLbl.Text = "Auto-load:  " .. selectedConfig
+        autoloadLbl.Text = selectedConfig
+        autoloadLbl.TextColor3 = _0xd5fe._0x0e5f.AccentColor
         _0xd5fe._0x0e5f:Notify("Config", "Auto-load set: " .. selectedConfig, 3, "folder")
     end)
 
-    actionBtn("Refresh", false, function()
+    actionBtn(1, 2, "Refresh", false, function()
         refreshList()
         _0xd5fe._0x0e5f:Notify("Config", "Refreshed config list", 2, "refresh")
     end)
 
-    -- ---------- auto-load footer ----------
-    local footer = mk("Frame", {
-        Parent = Root, BackgroundColor3 = T.Section, BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0, 306), Size = UDim2.new(1, 0, 0, 30)
+    -- ---------- auto-load readout (inside the actions panel) ----------
+    mk("Frame", {
+        Parent = actionPanel, BackgroundColor3 = T.Outline, BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 0, 184), Size = UDim2.new(1, 0, 0, 1)
     })
-    mk("UICorner", {Parent = footer, CornerRadius = UDim.new(0, 4)})
+    mk("TextLabel", {
+        Parent = actionPanel, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 194), Size = UDim2.new(1, -24, 0, 14),
+        Text = "AUTO-LOAD", Font = _0xd5fe._0x0e5f.Font,
+        TextColor3 = T.TextDim, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local autoName = self:GetAutoloadName()
     autoloadLbl = mk("TextLabel", {
-        Parent = footer, BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -24, 1, 0),
-        Text = "Auto-load:  " .. self:GetAutoloadName(), Font = _0xd5fe._0x0e5f.Font,
-        TextColor3 = T.TextDim, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left
+        Parent = actionPanel, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 209), Size = UDim2.new(1, -24, 0, 16),
+        Text = autoName, Font = _0xd5fe._0x0e5f.FontMono,
+        TextColor3 = autoName == "None" and T.TextDim or _0xd5fe._0x0e5f.AccentColor,
+        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd
     })
 
-    Root.Size = UDim2.new(1, 0, 0, 336)
+    Root.Size = UDim2.new(1, 0, 0, 42 + PANEL_H)
     refreshList()
 
     self:SetIgnoreIndexes({"SaveManager_ConfigName", "SaveManager_ConfigList"})

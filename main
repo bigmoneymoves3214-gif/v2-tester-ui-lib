@@ -758,6 +758,9 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     })
     MainFrame = Main
     _0xd5fe._0x36b7("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 10)})
+
+    -- declared early so the resize handles can honour it
+    local Minimized = false
     _0xd5fe._0xfb1b(Main, 0.2)
     _0xd5fe._0x36b7("UIStroke", {Parent = Main, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
 
@@ -962,20 +965,6 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     MinBtn.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(MinBtn, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
     MinBtn.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(MinBtn, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
     
-    local Minimized = false
-    MinBtn.MouseButton1Click:Connect(function()
-        Minimized = not Minimized
-        Main.ClipsDescendants = true
-        if Minimized then
-            _0xd5fe._0xa4bd:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 750, 0, 45)}):Play()
-            MinBtn.Text = "+"
-        else
-            _0xd5fe._0xa4bd:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 750, 0, 550)}):Play()
-            MinBtn.Text = "−"
-            task.wait(0.3)
-            Main.ClipsDescendants = false
-        end
-    end)
 
     -- Sidebar (slim icon rail, KH style)
     local RAIL_WIDTH = 56
@@ -1016,8 +1005,40 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         Size = UDim2.new(1, -(RAIL_WIDTH + 26), 1, -66)
     })
 
+    -- Minimize: hide the body outright so nothing can peek out of the collapsed
+    -- bar, and restore to whatever size the window actually was.
+    local restoreSize = Main.Size
+    MinBtn.MouseButton1Click:Connect(function()
+        Minimized = not Minimized
+        Main.ClipsDescendants = true
+        if Minimized then
+            restoreSize = Main.Size
+            Sidebar.Visible = false
+            Content.Visible = false
+            for _, v in pairs(Main:GetChildren()) do
+                if v:IsA("Frame") and v ~= Sidebar and v ~= Content and v ~= Topbar and v.Name ~= "Shadow" then
+                    v.Visible = false
+                end
+            end
+            _0xd5fe._0xa4bd:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(restoreSize.X.Scale, restoreSize.X.Offset, 0, 45)}):Play()
+            MinBtn.Text = "+"
+        else
+            _0xd5fe._0xa4bd:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = restoreSize}):Play()
+            MinBtn.Text = "−"
+            task.delay(0.3, function()
+                if Minimized then return end
+                Sidebar.Visible = true
+                Content.Visible = true
+                for _, v in pairs(Main:GetChildren()) do
+                    if v:IsA("Frame") and v.Name ~= "Shadow" then v.Visible = true end
+                end
+                Main.ClipsDescendants = false
+            end)
+        end
+    end)
+
     _0xd5fe._0x8efd.InputBegan:Connect(function(input)
-        if input.KeyCode == _0xd5fe._0x0e5f.ToggleKey then 
+        if input.KeyCode == _0xd5fe._0x0e5f.ToggleKey then
             _0xd5fe._0x0e5f.Open = not _0xd5fe._0x0e5f.Open 
             Main.Visible = _0xd5fe._0x0e5f.Open 
             CustomCursor.Visible = _0xd5fe._0x0e5f.Open
@@ -1147,6 +1168,112 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
         return obj
     end
+
+    -- Shared keybind capture modal. onSave(key) / onReset() are optional.
+    local function OpenKeybindModal(onSave, onReset)
+        local Modal = _0xd5fe._0x36b7("Frame", {
+            Parent = ScreenGui,
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = 5000
+        })
+        _0xd5fe._0xa4bd:Create(Modal, TweenInfo.new(0.2), {BackgroundTransparency = 0.45}):Play()
+
+        local ModalBox = _0xd5fe._0x36b7("Frame", {
+            Parent = Modal,
+            BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section,
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Size = UDim2.new(0, 300, 0, 170),
+            BorderSizePixel = 0,
+            ZIndex = 5001
+        })
+        _0xd5fe._0xfb1b(ModalBox, 0.35)
+        local ModalScale = _0xd5fe._0x36b7("UIScale", {Parent = ModalBox, Scale = 0.88})
+        _0xd5fe._0xa4bd:Create(ModalScale, TweenInfo.new(0.28, Enum.EasingStyle.Back), {Scale = 1}):Play()
+
+        _0xd5fe._0x36b7("TextLabel", {
+            Parent = ModalBox, BackgroundTransparency = 1,
+            Position = UDim2.new(0, 0, 0, 16), Size = UDim2.new(1, 0, 0, 20),
+            Text = "Set Keybind", Font = _0xd5fe._0x0e5f.FontBold,
+            TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 15, ZIndex = 5002
+        })
+
+        local KeyChip = _0xd5fe._0x36b7("Frame", {
+            Parent = ModalBox, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
+            Position = UDim2.new(0.5, 0, 0, 46), AnchorPoint = Vector2.new(0.5, 0),
+            Size = UDim2.new(0, 120, 0, 34), BorderSizePixel = 0, ZIndex = 5002
+        })
+        local KeyChipText = _0xd5fe._0x36b7("TextLabel", {
+            Parent = KeyChip, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0),
+            Text = "...", Font = _0xd5fe._0x0e5f.FontMono,
+            TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 15, ZIndex = 5003
+        })
+
+        local ModalStatus = _0xd5fe._0x36b7("TextLabel", {
+            Parent = ModalBox, BackgroundTransparency = 1,
+            Position = UDim2.new(0, 0, 0, 88), Size = UDim2.new(1, 0, 0, 16),
+            Text = "Press any key  ·  Esc to cancel", Font = _0xd5fe._0x0e5f.Font,
+            TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 13, ZIndex = 5002
+        })
+
+        local ButtonContainer = _0xd5fe._0x36b7("Frame", {
+            Parent = ModalBox, BackgroundTransparency = 1,
+            Position = UDim2.new(0, 16, 1, -46), Size = UDim2.new(1, -32, 0, 32),
+            ZIndex = 5002, Visible = false
+        })
+
+        local SaveBtn = _0xd5fe._0x36b7("TextButton", {
+            Parent = ButtonContainer, BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
+            Size = UDim2.new(0.48, 0, 1, 0), Text = "Save",
+            Font = _0xd5fe._0x0e5f.FontBold, TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
+            TextSize = 13, AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 5003
+        })
+        _0xd5fe._0x51c3(SaveBtn, 90)
+
+        local ResetBtn = _0xd5fe._0x36b7("TextButton", {
+            Parent = ButtonContainer, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
+            Position = UDim2.new(0.52, 0, 0, 0), Size = UDim2.new(0.48, 0, 1, 0),
+            Text = "Reset", Font = _0xd5fe._0x0e5f.FontBold,
+            TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 13,
+            AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 5003
+        })
+
+        local pendingKey = nil
+        local con
+        con = _0xd5fe._0x8efd.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                local key = input.KeyCode
+                if key == Enum.KeyCode.Unknown or key == Enum.KeyCode.Escape then
+                    Modal:Destroy()
+                    con:Disconnect()
+                    return
+                end
+                pendingKey = key
+                KeyChipText.Text = key.Name
+                KeyChipText.TextColor3 = _0xd5fe._0x0e5f.AccentColor
+                _0xd5fe._0xa4bd:Create(KeyChip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.16)}):Play()
+                ModalStatus.Text = "Save to confirm  ·  Reset to remove"
+                ButtonContainer.Visible = true
+                con:Disconnect()
+            end
+        end)
+
+        SaveBtn.MouseButton1Click:Connect(function()
+            if pendingKey and onSave then pcall(onSave, pendingKey) end
+            Modal:Destroy()
+        end)
+        ResetBtn.MouseButton1Click:Connect(function()
+            if onReset then pcall(onReset) end
+            Modal:Destroy()
+        end)
+        SaveBtn.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(SaveBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(116, 96, 255)}):Play() end)
+        SaveBtn.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(SaveBtn, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play() end)
+        ResetBtn.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(ResetBtn, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Error}):Play() end)
+        ResetBtn.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(ResetBtn, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play() end)
+    end
+    _0xd5fe._0x0e5f._OpenKeybindModal = OpenKeybindModal
 
     function WindowObj:AddTab(Name, IconId)
         -- Icon-only rail button (KH style): no background, no corners, just tint
@@ -1286,7 +1413,6 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 Size = UDim2.new(0, 0, 0, 30),
                 AutoButtonColor = false
             })
-            _0xd5fe._0x36b7("UICorner", {Parent = SubBtn, CornerRadius = UDim.new(0, 8)})
             _0xd5fe._0x36b7("UIPadding", {Parent = SubBtn, PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12)})
             _0xd5fe._0x36b7("UIListLayout", {
                 Parent = SubBtn,
@@ -1602,6 +1728,58 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
                     _0xd5fe._0x0e5f.Options[Text .. " Color"] = CPObj
                     return CPObj
+                end
+
+                -- toggle:AddKeybind(defaultKey?, callback?) -> inline key chip that
+                -- flips this toggle when the bound key is pressed
+                ToggleObj.AddKeybind = function(_, DefaultKey, KeyCallback)
+                    local BoundKey = DefaultKey
+
+                    local Chip = _0xd5fe._0x36b7("TextButton", {
+                        Parent = Frame,
+                        BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
+                        Size = UDim2.new(0, 42, 0, 18),
+                        Position = UDim2.new(1, nextX - 42, 0, 2),
+                        Text = (BoundKey and BoundKey.Name) or "---",
+                        Font = _0xd5fe._0x0e5f.FontMono,
+                        TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+                        TextSize = 10,
+                        AutoButtonColor = false,
+                        BorderSizePixel = 0
+                    })
+                    nextX = nextX - 48
+                    ReflowLabel()
+
+                    Chip.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.25)}):Play() end)
+                    Chip.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play() end)
+
+                    local KeyObj = {Type = "Keybind", Value = BoundKey}
+                    KeyObj.Set = function(self, key)
+                        BoundKey = key
+                        self.Value = key
+                        Chip.Text = (key and key.Name) or "---"
+                        if KeyCallback then pcall(KeyCallback, key) end
+                    end
+
+                    Chip.MouseButton1Click:Connect(function()
+                        OpenKeybindModal(
+                            function(key) KeyObj:Set(key) end,
+                            function() KeyObj:Set(nil) end
+                        )
+                    end)
+
+                    -- pressing the bound key flips the toggle
+                    _0xd5fe._0x8efd.InputBegan:Connect(function(input, gameProcessed)
+                        if gameProcessed then return end
+                        if input.UserInputType == Enum.UserInputType.Keyboard
+                           and BoundKey and input.KeyCode == BoundKey then
+                            State = not State
+                            Update()
+                        end
+                    end)
+
+                    _0xd5fe._0x0e5f.Options[Text .. " Key"] = KeyObj
+                    return KeyObj
                 end
 
                 -- toggle:AddSettings(menuName?) -> "•••" button opening a popup group
@@ -2825,103 +3003,280 @@ function _0xd5fe._0x0e5f.SaveManager:GetAutoloadName()
 end
 
 function _0xd5fe._0x0e5f.SaveManager:BuildConfigSection(tab)
-    local ConfigGroup = tab:AddRightGroupbox("Configuration")
-    
-    local configNameValue = ""
+    local T = _0xd5fe._0x0e5f.Theme
+    local mk = _0xd5fe._0x36b7
+
+    -- Reach the tab/subtab page by probing the groupbox hierarchy, then build a
+    -- full-width layout directly on it. Any groupboxes added afterwards (e.g. the
+    -- community section) are pushed below this panel rather than overlapped.
+    local probe = tab:AddLeftGroupbox("_cfgprobe")
+    local probeBox = probe._container.Parent
+    local column = probeBox.Parent
+    local page = column.Parent
+    probeBox:Destroy()
+
+    local columns = {}
+    for _, c in pairs(page:GetChildren()) do
+        if c:IsA("Frame") then table.insert(columns, {obj = c, pos = c.Position}) end
+    end
+    pcall(function() page.AutomaticCanvasSize = Enum.AutomaticSize.Y end)
+
+    local Root = mk("Frame", {
+        Parent = page,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 0),
+        Size = UDim2.new(1, 0, 0, 300),
+        ZIndex = 2
+    })
+    -- keep later groupboxes below this panel
+    Root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        local h = Root.AbsoluteSize.Y + 14
+        for _, c in pairs(columns) do
+            c.obj.Position = UDim2.new(c.pos.X.Scale, c.pos.X.Offset, 0, h)
+        end
+    end)
+
+    -- ---------- header ----------
+    mk("TextLabel", {
+        Parent = Root, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 2, 0, 0), Size = UDim2.new(1, -4, 0, 22),
+        Text = "Configuration", Font = _0xd5fe._0x0e5f.FontBold,
+        TextColor3 = T.Text, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local folderLbl = mk("TextLabel", {
+        Parent = Root, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 2, 0, 22), Size = UDim2.new(1, -4, 0, 16),
+        Text = self.Folder .. "/settings", Font = _0xd5fe._0x0e5f.FontMono,
+        TextColor3 = T.TextDim, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left
+    })
+    mk("Frame", {
+        Parent = Root, BackgroundColor3 = T.Outline, BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 0, 46), Size = UDim2.new(1, 0, 0, 1)
+    })
+
+    local function panel(x, w, title)
+        local p = mk("Frame", {
+            Parent = Root, BackgroundColor3 = T.Section, BorderSizePixel = 0,
+            Position = UDim2.new(x, x > 0 and 7 or 0, 0, 60),
+            Size = UDim2.new(w, x > 0 and -7 or -7, 0, 236)
+        })
+        mk("UICorner", {Parent = p, CornerRadius = UDim.new(0, 4)})
+        mk("TextLabel", {
+            Parent = p, BackgroundTransparency = 1,
+            Position = UDim2.new(0, 12, 0, 10), Size = UDim2.new(1, -24, 0, 16),
+            Text = title, Font = _0xd5fe._0x0e5f.FontBold,
+            TextColor3 = T.Text, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left
+        })
+        mk("Frame", {
+            Parent = p, BackgroundColor3 = T.Outline, BorderSizePixel = 0,
+            Position = UDim2.new(0, 0, 0, 34), Size = UDim2.new(1, 0, 0, 1)
+        })
+        return p
+    end
+
+    local listPanel = panel(0, 0.58, "Saved Configs")
+    local actionPanel = panel(0.58, 0.42, "Actions")
+
+    -- ---------- config list ----------
+    local List = mk("ScrollingFrame", {
+        Parent = listPanel, BackgroundTransparency = 1, BorderSizePixel = 0,
+        Position = UDim2.new(0, 6, 0, 42), Size = UDim2.new(1, -12, 1, -50),
+        ScrollBarThickness = 2, ScrollBarImageColor3 = _0xd5fe._0x0e5f.AccentColor,
+        CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y
+    })
+    mk("UIListLayout", {Parent = List, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
+
+    local emptyLbl = mk("TextLabel", {
+        Parent = listPanel, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 60), Size = UDim2.new(1, -24, 0, 18),
+        Text = "No saved configs yet.", Font = _0xd5fe._0x0e5f.Font,
+        TextColor3 = T.TextDim, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+        Visible = false
+    })
+
     local selectedConfig = ""
-    
-    -- Current Auto Load label
-    local autoloadLabel = ConfigGroup:AddLabel("Current Auto Load: " .. self:GetAutoloadName())
-    
-    ConfigGroup:AddInput("SaveManager_ConfigName", "Config name...", function(text)
-        configNameValue = text
+    local rows = {}
+
+    local function updateRowVisuals()
+        for name, r in pairs(rows) do
+            local sel = (name == selectedConfig)
+            r.bar.Visible = sel
+            r.label.TextColor3 = sel and T.Text or T.TextDim
+            r.btn.BackgroundTransparency = sel and 0.85 or 1
+        end
+    end
+
+    local refreshList
+
+    local function addRow(name)
+        local btn = mk("TextButton", {
+            Parent = List, BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
+            BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 28),
+            Text = "", AutoButtonColor = false, BorderSizePixel = 0
+        })
+        local bar = mk("Frame", {
+            Parent = btn, BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor, BorderSizePixel = 0,
+            Position = UDim2.new(0, 0, 0.5, -7), Size = UDim2.new(0, 2, 0, 14), Visible = false
+        })
+        local label = mk("TextLabel", {
+            Parent = btn, BackgroundTransparency = 1,
+            Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -20, 1, 0),
+            Text = name, Font = _0xd5fe._0x0e5f.Font, TextColor3 = T.TextDim,
+            TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        })
+        rows[name] = {btn = btn, bar = bar, label = label}
+
+        btn.MouseEnter:Connect(function()
+            if selectedConfig ~= name then
+                _0xd5fe._0xa4bd:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0.92}):Play()
+                _0xd5fe._0xa4bd:Create(label, TweenInfo.new(0.12), {TextColor3 = T.Text}):Play()
+            end
+        end)
+        btn.MouseLeave:Connect(function()
+            if selectedConfig ~= name then
+                _0xd5fe._0xa4bd:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+                _0xd5fe._0xa4bd:Create(label, TweenInfo.new(0.12), {TextColor3 = T.TextDim}):Play()
+            end
+        end)
+        btn.MouseButton1Click:Connect(function()
+            selectedConfig = name
+            updateRowVisuals()
+        end)
+    end
+
+    refreshList = function()
+        for _, c in pairs(List:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+        rows = {}
+        local names = self:RefreshConfigList()
+        table.sort(names)
+        for _, n in ipairs(names) do addRow(n) end
+        emptyLbl.Visible = (#names == 0)
+        if not rows[selectedConfig] then selectedConfig = "" end
+        updateRowVisuals()
+    end
+
+    -- ---------- actions ----------
+    local configNameValue = ""
+
+    local Box = mk("TextBox", {
+        Parent = actionPanel, BackgroundColor3 = T.Element, BorderSizePixel = 0,
+        Position = UDim2.new(0, 12, 0, 44), Size = UDim2.new(1, -24, 0, 28),
+        PlaceholderText = "Config name...", Text = "",
+        Font = _0xd5fe._0x0e5f.Font, TextColor3 = T.Text, TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false
+    })
+    mk("UIPadding", {Parent = Box, PaddingLeft = UDim.new(0, 10)})
+    local boxStroke = mk("UIStroke", {Parent = Box, Color = T.Outline, Thickness = 1, Transparency = 1})
+    Box.Focused:Connect(function() _0xd5fe._0xa4bd:Create(boxStroke, TweenInfo.new(0.15), {Transparency = 0, Color = _0xd5fe._0x0e5f.AccentColor}):Play() end)
+    Box.FocusLost:Connect(function()
+        _0xd5fe._0xa4bd:Create(boxStroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
+        configNameValue = Box.Text
     end)
-    
-    local configList = self:RefreshConfigList()
-    local dropdownRef = nil
-    
-    dropdownRef = ConfigGroup:AddDropdown("SaveManager_ConfigList", configList, nil, function(opt)
-        selectedConfig = opt or ""
-    end)
-    
-    ConfigGroup:AddButton("Create Config", function()
+    Box:GetPropertyChangedSignal("Text"):Connect(function() configNameValue = Box.Text end)
+
+    local btnY = 82
+    local function actionBtn(text, accent, cb)
+        local b = mk("TextButton", {
+            Parent = actionPanel,
+            BackgroundColor3 = accent and _0xd5fe._0x0e5f.AccentColor or T.Element,
+            Position = UDim2.new(0, 12, 0, btnY), Size = UDim2.new(1, -24, 0, 26),
+            Text = text, Font = _0xd5fe._0x0e5f.FontBold, TextColor3 = T.Text,
+            TextSize = 12, AutoButtonColor = false, BorderSizePixel = 0
+        })
+        mk("UICorner", {Parent = b, CornerRadius = UDim.new(0, 4)})
+        if accent then _0xd5fe._0x51c3(b, 90) end
+        btnY = btnY + 30
+        local base = accent and _0xd5fe._0x0e5f.AccentColor or T.Element
+        local hov = accent and Color3.fromRGB(116, 96, 255) or T.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.3)
+        b.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = hov}):Play() end)
+        b.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = base}):Play() end)
+        b.MouseButton1Click:Connect(cb)
+        return b
+    end
+
+    local function requireSelection()
+        if not selectedConfig or selectedConfig == "" then
+            _0xd5fe._0x0e5f:Notify("Config", "Select a config first", 3, "error")
+            return false
+        end
+        return true
+    end
+
+    actionBtn("Create", true, function()
         local name = configNameValue
         if not name or name:gsub(" ", "") == "" then
             return _0xd5fe._0x0e5f:Notify("Config", "Enter a config name", 3, "error")
         end
-        
         local success, err = self:Save(name)
         if not success then
             return _0xd5fe._0x0e5f:Notify("Config", "Failed to save: " .. (err or "unknown"), 3, "error")
         end
-        
         _0xd5fe._0x0e5f:Notify("Config", "Created: " .. name, 3, "folder")
-        
-        if dropdownRef and dropdownRef.Refresh then
-            dropdownRef:Refresh(self:RefreshConfigList())
-        end
+        refreshList()
     end)
-    
-    ConfigGroup:AddButton("Load Config", function()
-        if not selectedConfig or selectedConfig == "" then
-            return _0xd5fe._0x0e5f:Notify("Config", "Select a config first", 3, "error")
-        end
-        
+
+    actionBtn("Load", false, function()
+        if not requireSelection() then return end
         local success, err = self:Load(selectedConfig)
         if not success then
             return _0xd5fe._0x0e5f:Notify("Config", "Failed to load: " .. (err or "unknown"), 3, "error")
         end
-        
         _0xd5fe._0x0e5f:Notify("Config", "Loaded: " .. selectedConfig, 3, "folder")
     end)
-    
-    ConfigGroup:AddButton("Overwrite Config", function()
-        if not selectedConfig or selectedConfig == "" then
-            return _0xd5fe._0x0e5f:Notify("Config", "Select a config first", 3, "error")
-        end
-        
+
+    actionBtn("Overwrite", false, function()
+        if not requireSelection() then return end
         local success, err = self:Save(selectedConfig)
         if not success then
             return _0xd5fe._0x0e5f:Notify("Config", "Failed to save: " .. (err or "unknown"), 3, "error")
         end
-        
         _0xd5fe._0x0e5f:Notify("Config", "Overwrote: " .. selectedConfig, 3, "folder")
     end)
-    
-    ConfigGroup:AddButton("Delete Config", function()
-        if not selectedConfig or selectedConfig == "" then
-            return _0xd5fe._0x0e5f:Notify("Config", "Select a config first", 3, "error")
-        end
-        
+
+    actionBtn("Delete", false, function()
+        if not requireSelection() then return end
         if self:Delete(selectedConfig) then
             _0xd5fe._0x0e5f:Notify("Config", "Deleted: " .. selectedConfig, 3, "trash")
             selectedConfig = ""
-            if dropdownRef and dropdownRef.Refresh then
-                dropdownRef:Refresh(self:RefreshConfigList())
-            end
+            refreshList()
         else
             _0xd5fe._0x0e5f:Notify("Config", "Failed to delete", 3, "error")
         end
     end)
-    
-    ConfigGroup:AddButton("Refresh List", function()
-        if dropdownRef and dropdownRef.Refresh then
-            dropdownRef:Refresh(self:RefreshConfigList())
-        end
-        _0xd5fe._0x0e5f:Notify("Config", "Refreshed config list", 2, "refresh")
-    end)
-    
-    ConfigGroup:AddButton("Set as Auto-Load", function()
-        if not selectedConfig or selectedConfig == "" then
-            return _0xd5fe._0x0e5f:Notify("Config", "Select a config first", 3, "error")
-        end
-        
+
+    local autoloadLbl
+    actionBtn("Set Auto-Load", false, function()
+        if not requireSelection() then return end
         self:BuildFolderTree()
         writefile(self.Folder .. "/settings/autoload.txt", selectedConfig)
-        autoloadLabel:Set("Current Auto Load: " .. selectedConfig)
+        autoloadLbl.Text = "Auto-load:  " .. selectedConfig
         _0xd5fe._0x0e5f:Notify("Config", "Auto-load set: " .. selectedConfig, 3, "folder")
     end)
-    
+
+    actionBtn("Refresh", false, function()
+        refreshList()
+        _0xd5fe._0x0e5f:Notify("Config", "Refreshed config list", 2, "refresh")
+    end)
+
+    -- ---------- auto-load footer ----------
+    local footer = mk("Frame", {
+        Parent = Root, BackgroundColor3 = T.Section, BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 0, 306), Size = UDim2.new(1, 0, 0, 30)
+    })
+    mk("UICorner", {Parent = footer, CornerRadius = UDim.new(0, 4)})
+    autoloadLbl = mk("TextLabel", {
+        Parent = footer, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -24, 1, 0),
+        Text = "Auto-load:  " .. self:GetAutoloadName(), Font = _0xd5fe._0x0e5f.Font,
+        TextColor3 = T.TextDim, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    Root.Size = UDim2.new(1, 0, 0, 336)
+    refreshList()
+
     self:SetIgnoreIndexes({"SaveManager_ConfigName", "SaveManager_ConfigList"})
 end
 

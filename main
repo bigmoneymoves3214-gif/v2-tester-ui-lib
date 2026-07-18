@@ -1031,11 +1031,29 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
     -- Floating popup panel (toggle settings menus / inline color pickers)
     local function CreatePopupPanel(width, fixedHeight)
-        local Panel = _0xd5fe._0x36b7("Frame", {
+        -- Full-screen catcher behind the panel. Any click that lands here (i.e.
+        -- not on the panel or one of its children, including overflowing dropdown
+        -- lists) closes the popup. This is far more reliable than geometric
+        -- hit-testing, which misfires on clipped/overflowing content.
+        local Backdrop = _0xd5fe._0x36b7("TextButton", {
+            Parent = ScreenGui,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            Text = "",
+            AutoButtonColor = false,
+            Visible = false,
+            ZIndex = 299
+        })
+
+        -- Panel is a TextButton so clicks on its own empty areas are consumed
+        -- (and therefore never reach the backdrop / never close it).
+        local Panel = _0xd5fe._0x36b7("TextButton", {
             Parent = ScreenGui,
             BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section,
             Size = UDim2.new(0, width, 0, fixedHeight or 0),
             AutomaticSize = fixedHeight and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
+            Text = "",
+            AutoButtonColor = false,
             Visible = false,
             BorderSizePixel = 0,
             ZIndex = 300
@@ -1044,64 +1062,38 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         local PanelScale = _0xd5fe._0x36b7("UIScale", {Parent = Panel, Scale = 1})
 
         local obj = { Gui = Panel, Open = false, Locked = false }
-        local outsideConn = nil
 
         function obj:Hide()
             if not self.Open then return end
             self.Open = false
             self._closedAt = tick()
-            if outsideConn then outsideConn:Disconnect() outsideConn = nil end
+            Backdrop.Visible = false
             _0xd5fe._0xa4bd:Create(PanelScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.92}):Play()
             task.delay(0.12, function() if not obj.Open then Panel.Visible = false end end)
         end
 
-        local function ClickIsInside(p)
-            local ap, asz = Panel.AbsolutePosition, Panel.AbsoluteSize
-            if p.X >= ap.X - 12 and p.X <= ap.X + asz.X + 12 and p.Y >= ap.Y - 12 and p.Y <= ap.Y + asz.Y + 12 then
-                return true
-            end
-            -- expanded dropdown lists (etc.) can overflow the panel bounds -
-            -- treat any visible descendant's area as inside
-            for _, d in pairs(Panel:GetDescendants()) do
-                if d:IsA("GuiObject") and d.Visible and d.AbsoluteSize.Y > 0 then
-                    local dp, ds = d.AbsolutePosition, d.AbsoluteSize
-                    if p.X >= dp.X - 4 and p.X <= dp.X + ds.X + 4 and p.Y >= dp.Y - 4 and p.Y <= dp.Y + ds.Y + 4 then
-                        return true
-                    end
-                end
-            end
-            return false
-        end
+        Backdrop.MouseButton1Click:Connect(function()
+            if not obj.Locked then obj:Hide() end
+        end)
 
         function obj:Show(anchorPos)
             self.Open = true
+            Backdrop.Visible = true
             task.spawn(function()
                 local RunService = game:GetService("RunService")
 
-                -- Render one frame at near-zero scale so layouts resolve and the
-                -- real content height can be measured (AutomaticSize is not
-                -- trustworthy while a gui has never been visible).
+                -- Show at anchor (scale ~1 so AutomaticSize resolves to the real
+                -- height), let it lay out, measure, then reposition + pop.
                 Panel.Position = UDim2.new(0, anchorPos.X, 0, anchorPos.Y)
-                PanelScale.Scale = 0.001
+                PanelScale.Scale = 1
                 Panel.Visible = true
                 RunService.Heartbeat:Wait()
                 RunService.Heartbeat:Wait()
-                if not obj.Open then Panel.Visible = false return end
+                if not obj.Open then Panel.Visible = false Backdrop.Visible = false return end
 
-                local panelH = fixedHeight
-                if not panelH then
-                    local contentH = 0
-                    for _, c in pairs(Panel:GetChildren()) do
-                        if c:IsA("GuiObject") and c.Name ~= "Shadow" then
-                            contentH = math.max(contentH, c.AbsoluteSize.Y)
-                        end
-                    end
-                    panelH = math.max(contentH, 60)
-                    Panel.AutomaticSize = Enum.AutomaticSize.None
-                    Panel.Size = UDim2.new(0, width, 0, panelH)
-                end
-                -- force every descendant above the panel background regardless of
-                -- the gui's ZIndexBehavior (preserving relative order)
+                local panelH = fixedHeight or (Panel.AbsoluteSize.Y / math.max(PanelScale.Scale, 0.001))
+
+                -- keep descendants above the panel background under any ZIndexBehavior
                 for _, d in pairs(Panel:GetDescendants()) do
                     if d:IsA("GuiObject") and d.Name ~= "Shadow" and d.ZIndex < 301 then
                         d.ZIndex = d.ZIndex + 300
@@ -1110,8 +1102,8 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
                 local screenSize = workspace.CurrentCamera.ViewportSize
                 local x = math.clamp(anchorPos.X, 10, screenSize.X - width - 10)
-                -- prefer opening below the anchor; if there is no room, flip above
-                -- the row instead of drifting to an arbitrary clamped spot
+                -- prefer opening below the anchor; only flip above if it truly
+                -- would not fit under the button
                 local y = anchorPos.Y
                 if y + panelH + 10 > screenSize.Y then
                     y = anchorPos.Y - panelH - 34
@@ -1120,15 +1112,6 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 Panel.Position = UDim2.new(0, x, 0, y)
                 PanelScale.Scale = 0.9
                 _0xd5fe._0xa4bd:Create(PanelScale, TweenInfo.new(0.25, Enum.EasingStyle.Back), {Scale = 1}):Play()
-
-                if outsideConn then outsideConn:Disconnect() end
-                outsideConn = _0xd5fe._0x8efd.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 and not obj.Locked then
-                        if not ClickIsInside(_0xd5fe._0x8efd:GetMouseLocation()) then
-                            obj:Hide()
-                        end
-                    end
-                end)
             end)
         end
 
@@ -1590,8 +1573,10 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     CPObj.Get = function() return Color3.fromHSV(cur.H, cur.S, cur.V) end
 
                     Swatch.MouseButton1Click:Connect(function()
+                        -- open directly below the swatch, right-aligned to it so a
+                        -- 200px panel off a right-side swatch stays over the window
                         local p = Swatch.AbsolutePosition
-                        Panel:Toggle(Vector2.new(p.X - PANEL_W + 16, p.Y + 24))
+                        Panel:Toggle(Vector2.new(p.X + Swatch.AbsoluteSize.X - PANEL_W, p.Y + Swatch.AbsoluteSize.Y + 6))
                     end)
 
                     _0xd5fe._0x0e5f.Options[Text .. " Color"] = CPObj
@@ -1613,9 +1598,10 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     local SettingsGroup = ParentTab:CreateGroupbox(Panel.Gui, MenuName or Text)
 
                     Dots.MouseButton1Click:Connect(function()
-                        -- open just below the dots, starting at the press point
+                        -- open directly below the dots, left edge at the dots,
+                        -- extending right (matches the requested layout)
                         local p = Dots.AbsolutePosition
-                        Panel:Toggle(Vector2.new(p.X - 8, p.Y + Dots.AbsoluteSize.Y + 4))
+                        Panel:Toggle(Vector2.new(p.X, p.Y + Dots.AbsoluteSize.Y + 6))
                     end)
 
                     return SettingsGroup
@@ -1626,28 +1612,27 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             end
             
             function Group:AddSlider(Text, Min, Max, Default, Callback)
-                 local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,42)})
+                 local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,44)})
                  local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = Text, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Font = _0xd5fe._0x0e5f.Font, TextSize=13, Size = UDim2.new(1,-52,0,16), TextXAlignment=Enum.TextXAlignment.Left})
-                 
-                 local Bg = _0xd5fe._0x36b7("Frame", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(1,0,0,5), Position = UDim2.new(0,0,0,26), BorderSizePixel = 0})
-                 _0xd5fe._0x36b7("UICorner", {Parent = Bg, CornerRadius = UDim.new(1,0)})
-                 local BgStroke = _0xd5fe._0x36b7("UIStroke", {Parent = Bg, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1, Transparency = 1})
+
+                 -- Square boxed track (fill-in bar)
+                 local Bg = _0xd5fe._0x36b7("Frame", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Background, Size = UDim2.new(1,0,0,12), Position = UDim2.new(0,0,0,24), BorderSizePixel = 0})
+                 local BgStroke = _0xd5fe._0x36b7("UIStroke", {Parent = Bg, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
 
                  local Fill = _0xd5fe._0x36b7("Frame", {Parent = Bg, BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor, Size = UDim2.new(0,0,1,0), BorderSizePixel = 0})
-                 _0xd5fe._0x36b7("UICorner", {Parent = Fill, CornerRadius = UDim.new(1,0)})
                  local FillGrad = _0xd5fe._0x51c3(Fill, 0)
+                 -- Glow stroke on the fill (pulsed while dragging)
+                 local FillGlow = _0xd5fe._0x36b7("UIStroke", {Parent = Fill, Color = _0xd5fe._0x0e5f.AccentColor, Thickness = 1, Transparency = 1})
 
-                 -- Round knob riding the end of the fill
-                 local Knob = _0xd5fe._0x36b7("Frame", {Parent = Fill, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 13, 0, 13), BorderSizePixel = 0, ZIndex = 2})
-                 _0xd5fe._0x36b7("UICorner", {Parent = Knob, CornerRadius = UDim.new(1,0)})
-                 _0xd5fe._0x36b7("UIStroke", {Parent = Knob, Color = Color3.fromRGB(0, 0, 0), Thickness = 1, Transparency = 0.6})
+                 -- Vertical handle at the fill edge (the "}")
+                 local Handle = _0xd5fe._0x36b7("Frame", {Parent = Fill, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 3, 1, 2), BorderSizePixel = 0, ZIndex = 2})
 
-                 -- Value readout (plain text, no background)
+                 -- Value readout (plain mono text, no background)
                  local Value = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = tostring(Default), TextColor3 = _0xd5fe._0x0e5f.Theme.Text, Font=_0xd5fe._0x0e5f.FontMono, TextSize=12, Position = UDim2.new(1,-60,0,0), Size = UDim2.new(0,60,0,16), TextXAlignment = Enum.TextXAlignment.Right})
-                 
+
                  Bg.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
-                 Bg.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
-                 
+                 Bg.MouseLeave:Connect(function() if not Dragging then _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end end)
+
                  local CurrentValue = Default or Min
                  local SliderObj = {
                      Type = "Slider",
@@ -1655,27 +1640,42 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                  }
 
                  local Dragging = false
-                 local lastPulse = 0
-                 local wasAtMax = false
+                 local loopRunning = false
 
-                 -- Reactive slider line: the fill flashes hotter and a shimmer runs
-                 -- along it; the track glows. All of it scales with how close the
-                 -- value is to max.
-                 local function PulseLine(t)
-                     local now = tick()
-                     -- pulse faster the higher the value
-                     if now - lastPulse < (0.14 - t * 0.08) then return end
-                     lastPulse = now
-                     -- fill "tweaks out": snap to a hotter tint, ease back to accent
-                     local hot = _0xd5fe._0x0e5f.AccentColor:Lerp(Color3.new(1, 1, 1), 0.2 + t * 0.5)
-                     Fill.BackgroundColor3 = hot
-                     _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.3), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
-                     -- shimmer sweeps along the line
-                     FillGrad.Offset = Vector2.new(-1, 0)
-                     _0xd5fe._0xa4bd:Create(FillGrad, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {Offset = Vector2.new(1, 0)}):Play()
-                     -- empty part of the track glows faintly purple
-                     Bg.BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.08 + t * 0.22)
-                     _0xd5fe._0xa4bd:Create(Bg, TweenInfo.new(0.35), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play()
+                 -- Continuous reactive loop: runs the whole time the slider is held
+                 -- (even if the mouse isn't moving). Everything targets the FILLED
+                 -- part only, and intensity ramps hard toward max.
+                 local function StartReactiveLoop()
+                     if loopRunning then return end
+                     loopRunning = true
+                     task.spawn(function()
+                         while Dragging do
+                             local t = (CurrentValue - Min) / (Max - Min)
+                             local intensity = 0.25 + t * t     -- mild low, wild near max
+                             -- fill strobes toward white then washes back to accent
+                             Fill.BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor:Lerp(Color3.new(1,1,1), math.clamp(0.15 + intensity * 0.75, 0, 0.95))
+                             _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(math.max(0.08, 0.28 - t*0.2)), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
+                             -- shimmer sweep down the fill
+                             FillGrad.Offset = Vector2.new(-1, 0)
+                             _0xd5fe._0xa4bd:Create(FillGrad, TweenInfo.new(math.max(0.12, 0.45 - t*0.35), Enum.EasingStyle.Linear), {Offset = Vector2.new(1, 0)}):Play()
+                             -- glow stroke bursts outward from the fill
+                             FillGlow.Thickness = 1 + intensity * 5
+                             FillGlow.Transparency = math.clamp(0.55 - intensity * 0.5, 0, 0.6)
+                             _0xd5fe._0xa4bd:Create(FillGlow, TweenInfo.new(math.max(0.15, 0.4 - t*0.25)), {Transparency = 1, Thickness = 1}):Play()
+                             -- handle flares white near the top
+                             if t > 0.5 then
+                                 Handle.BackgroundColor3 = Color3.new(1,1,1)
+                                 _0xd5fe._0xa4bd:Create(Handle, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play()
+                             end
+                             -- pulse rate accelerates toward max
+                             task.wait(math.max(0.05, 0.2 - t * 0.15))
+                         end
+                         -- settle back to a clean fill on release
+                         loopRunning = false
+                         _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
+                         _0xd5fe._0xa4bd:Create(FillGlow, TweenInfo.new(0.2), {Transparency = 1, Thickness = 1}):Play()
+                         FillGrad.Offset = Vector2.new(0, 0)
+                     end)
                  end
 
                  local function Set(v, instant)
@@ -1686,38 +1686,24 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                      if instant then
                          Fill.Size = UDim2.new(t, 0, 1, 0)
                      else
-                         _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(t, 0, 1, 0)}):Play()
+                         _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.08), {Size = UDim2.new(t, 0, 1, 0)}):Play()
                      end
                      Value.Text = math.floor(v*100)/100
-
-                     if Dragging then
-                         -- line gets reactive from ~35% upward
-                         if t >= 0.35 then PulseLine(t) end
-                         -- full boom on hitting max: white flash down the line + knob punch
-                         if t >= 1 and not wasAtMax then
-                             wasAtMax = true
-                             Fill.BackgroundColor3 = Color3.new(1, 1, 1)
-                             _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.45), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
-                             FillGrad.Offset = Vector2.new(-1, 0)
-                             _0xd5fe._0xa4bd:Create(FillGrad, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Offset = Vector2.new(1, 0)}):Play()
-                             _0xd5fe._0xa4bd:Create(Knob, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 18, 0, 18)}):Play()
-                             task.delay(0.12, function()
-                                 _0xd5fe._0xa4bd:Create(Knob, TweenInfo.new(0.2, Enum.EasingStyle.Back), {Size = UDim2.new(0, 13, 0, 13)}):Play()
-                             end)
-                         elseif t < 1 then
-                             wasAtMax = false
-                         end
-                     end
-
                      pcall(Callback, v)
                  end
 
                  SliderObj.Set = function(self, v) Set(v, true) end
-                 Bg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1))) end end)
+                 Bg.InputBegan:Connect(function(i)
+                     if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                         Dragging = true
+                         StartReactiveLoop()
+                         Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1)))
+                     end
+                 end)
                  _0xd5fe._0x8efd.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end)
                  _0xd5fe._0x8efd.InputChanged:Connect(function(i) if Dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1))) end end)
                  Set(Default or Min)
-                 
+
                  _0xd5fe._0x0e5f.Options[Text] = SliderObj
                  return SliderObj
             end

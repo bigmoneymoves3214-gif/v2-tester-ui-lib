@@ -416,7 +416,6 @@ function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
         BorderSizePixel = 0,
         ClipsDescendants = true
     })
-    _0xd5fe._0x36b7("UICorner", {Parent = Notif, CornerRadius = UDim.new(0, 8)})
     _0xd5fe._0x36b7("UIStroke", {Parent = Notif, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
 
     local Icon = _0xd5fe._0x36b7("ImageLabel", {
@@ -1082,6 +1081,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 -- Render one frame at near-zero scale so layouts resolve and the
                 -- real content height can be measured (AutomaticSize is not
                 -- trustworthy while a gui has never been visible).
+                Panel.Position = UDim2.new(0, anchorPos.X, 0, anchorPos.Y)
                 PanelScale.Scale = 0.001
                 Panel.Visible = true
                 RunService.Heartbeat:Wait()
@@ -1110,7 +1110,13 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
                 local screenSize = workspace.CurrentCamera.ViewportSize
                 local x = math.clamp(anchorPos.X, 10, screenSize.X - width - 10)
-                local y = math.clamp(anchorPos.Y, 10, screenSize.Y - panelH - 10)
+                -- prefer opening below the anchor; if there is no room, flip above
+                -- the row instead of drifting to an arbitrary clamped spot
+                local y = anchorPos.Y
+                if y + panelH + 10 > screenSize.Y then
+                    y = anchorPos.Y - panelH - 34
+                end
+                y = math.max(10, y)
                 Panel.Position = UDim2.new(0, x, 0, y)
                 PanelScale.Scale = 0.9
                 _0xd5fe._0xa4bd:Create(PanelScale, TweenInfo.new(0.25, Enum.EasingStyle.Back), {Scale = 1}):Play()
@@ -1629,7 +1635,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
                  local Fill = _0xd5fe._0x36b7("Frame", {Parent = Bg, BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor, Size = UDim2.new(0,0,1,0), BorderSizePixel = 0})
                  _0xd5fe._0x36b7("UICorner", {Parent = Fill, CornerRadius = UDim.new(1,0)})
-                 _0xd5fe._0x51c3(Fill, 0)
+                 local FillGrad = _0xd5fe._0x51c3(Fill, 0)
 
                  -- Round knob riding the end of the fill
                  local Knob = _0xd5fe._0x36b7("Frame", {Parent = Fill, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Text, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 13, 0, 13), BorderSizePixel = 0, ZIndex = 2})
@@ -1652,27 +1658,24 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                  local lastPulse = 0
                  local wasAtMax = false
 
-                 -- Sonic-boom rings from the knob; intensity scales with how close
-                 -- the value is to max (bigger, faster, more opaque near the top)
-                 local function EmitPulse(t)
+                 -- Reactive slider line: the fill flashes hotter and a shimmer runs
+                 -- along it; the track glows. All of it scales with how close the
+                 -- value is to max.
+                 local function PulseLine(t)
                      local now = tick()
                      -- pulse faster the higher the value
-                     if now - lastPulse < (0.16 - t * 0.1) then return end
+                     if now - lastPulse < (0.14 - t * 0.08) then return end
                      lastPulse = now
-                     local ring = _0xd5fe._0x36b7("Frame", {
-                         Parent = Knob,
-                         BackgroundTransparency = 1,
-                         AnchorPoint = Vector2.new(0.5, 0.5),
-                         Position = UDim2.new(0.5, 0, 0.5, 0),
-                         Size = UDim2.new(0, 10, 0, 10),
-                         ZIndex = 3
-                     })
-                     _0xd5fe._0x36b7("UICorner", {Parent = ring, CornerRadius = UDim.new(1, 0)})
-                     local ringStroke = _0xd5fe._0x36b7("UIStroke", {Parent = ring, Color = _0xd5fe._0x0e5f.AccentColor, Thickness = 2, Transparency = 0.55 - t * 0.45})
-                     local target = 16 + t * 30
-                     _0xd5fe._0xa4bd:Create(ring, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = UDim2.new(0, target, 0, target)}):Play()
-                     _0xd5fe._0xa4bd:Create(ringStroke, TweenInfo.new(0.4), {Transparency = 1, Thickness = 1}):Play()
-                     task.delay(0.45, function() ring:Destroy() end)
+                     -- fill "tweaks out": snap to a hotter tint, ease back to accent
+                     local hot = _0xd5fe._0x0e5f.AccentColor:Lerp(Color3.new(1, 1, 1), 0.2 + t * 0.5)
+                     Fill.BackgroundColor3 = hot
+                     _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.3), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
+                     -- shimmer sweeps along the line
+                     FillGrad.Offset = Vector2.new(-1, 0)
+                     _0xd5fe._0xa4bd:Create(FillGrad, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {Offset = Vector2.new(1, 0)}):Play()
+                     -- empty part of the track glows faintly purple
+                     Bg.BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.08 + t * 0.22)
+                     _0xd5fe._0xa4bd:Create(Bg, TweenInfo.new(0.35), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play()
                  end
 
                  local function Set(v, instant)
@@ -1688,13 +1691,15 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                      Value.Text = math.floor(v*100)/100
 
                      if Dragging then
-                         -- reactive rings from ~35% upward
-                         if t >= 0.35 then EmitPulse(t) end
-                         -- big boom + knob punch on hitting max
+                         -- line gets reactive from ~35% upward
+                         if t >= 0.35 then PulseLine(t) end
+                         -- full boom on hitting max: white flash down the line + knob punch
                          if t >= 1 and not wasAtMax then
                              wasAtMax = true
-                             EmitPulse(1)
-                             task.delay(0.05, function() EmitPulse(1) end)
+                             Fill.BackgroundColor3 = Color3.new(1, 1, 1)
+                             _0xd5fe._0xa4bd:Create(Fill, TweenInfo.new(0.45), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
+                             FillGrad.Offset = Vector2.new(-1, 0)
+                             _0xd5fe._0xa4bd:Create(FillGrad, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Offset = Vector2.new(1, 0)}):Play()
                              _0xd5fe._0xa4bd:Create(Knob, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 18, 0, 18)}):Play()
                              task.delay(0.12, function()
                                  _0xd5fe._0xa4bd:Create(Knob, TweenInfo.new(0.2, Enum.EasingStyle.Back), {Size = UDim2.new(0, 13, 0, 13)}):Play()

@@ -1104,6 +1104,27 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         ZIndex = 298
     })
 
+    -- Roblox fires MouseEnter/MouseLeave purely on cursor position - it does NOT
+    -- take occlusion into account. So while a popup panel is floating over the
+    -- menu, whatever sits underneath it keeps receiving hover events: sliders
+    -- highlight themselves and toggles pop their tooltip even though the cursor
+    -- is really on the popup. Clicks are fine (the backdrop consumes those).
+    --
+    -- Every open panel registers itself here, and hover handlers bail out when
+    -- the cursor is over a popup but the element being hovered is not inside it.
+    -- MouseLeave is deliberately NOT gated, so anything already highlighted when
+    -- the popup opened still gets cleaned up.
+    local OpenPopups = {}
+
+    local function HoverBlocked(inst)
+        if not next(OpenPopups) then return false end
+        for panel in pairs(OpenPopups) do
+            if inst == panel or inst:IsDescendantOf(panel) then return false end
+        end
+        return true
+    end
+    _0xd5fe._0x0e5f._HoverBlocked = HoverBlocked
+
     -- Floating popup panel (toggle settings menus / inline color pickers)
     local function CreatePopupPanel(width, fixedHeight)
         -- Full-screen catcher behind the panel. Any click that lands here (i.e.
@@ -1142,6 +1163,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             if not self.Open then return end
             self.Open = false
             self._closedAt = tick()
+            OpenPopups[Panel] = nil
             Backdrop.Visible = false
             _0xd5fe._0xa4bd:Create(PanelScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.92}):Play()
             task.delay(0.12, function() if not obj.Open then Panel.Visible = false end end)
@@ -1159,6 +1181,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
         function obj:Show(anchorAbs)
             self.Open = true
+            OpenPopups[Panel] = true
             Backdrop.Visible = true
             task.spawn(function()
                 local RunService = game:GetService("RunService")
@@ -1420,7 +1443,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         end
         TabBtn.MouseButton1Click:Connect(Activate)
 
-        TabBtn.MouseEnter:Connect(function()
+        TabBtn.MouseEnter:Connect(function() if HoverBlocked(TabBtn) then return end
             if ActiveTabBtn ~= TabBtn then
                 if TabIcon then _0xd5fe._0xa4bd:Create(TabIcon, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end
                 if TabLetter then _0xd5fe._0xa4bd:Create(TabLetter, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end
@@ -1512,7 +1535,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 if ico then _0xd5fe._0xa4bd:Create(ico, TweenInfo.new(0.2), {ImageColor3 = active and _0xd5fe._0x0e5f.AccentColor or _0xd5fe._0x0e5f.Theme.TextDim}):Play() end
             end
 
-            SubBtn.MouseEnter:Connect(function() if SubBtn.BackgroundTransparency > 0.5 then _0xd5fe._0xa4bd:Create(SubLabel, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end end)
+            SubBtn.MouseEnter:Connect(function() if HoverBlocked(SubBtn) then return end if SubBtn.BackgroundTransparency > 0.5 then _0xd5fe._0xa4bd:Create(SubLabel, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end end)
             SubBtn.MouseLeave:Connect(function() if SubBtn.BackgroundTransparency > 0.5 then _0xd5fe._0xa4bd:Create(SubLabel, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end end)
 
             SubBtn.MouseButton1Click:Connect(function()
@@ -1598,6 +1621,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 _0xd5fe._0x36b7("UICorner", {Parent = ToggleKnob, CornerRadius = UDim.new(1, 0)})
 
                 Frame.MouseEnter:Connect(function()
+                    if HoverBlocked(Frame) then return end
                     -- Show tooltip if options provided
                     if TooltipOptions and TooltipOptions.Text then
                         local tooltipType = TooltipOptions.Type or "info"
@@ -1794,7 +1818,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     nextX = nextX - 48
                     ReflowLabel()
 
-                    Chip.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.25)}):Play() end)
+                    Chip.MouseEnter:Connect(function() if HoverBlocked(Chip) then return end _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.25)}):Play() end)
                     Chip.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Chip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play() end)
 
                     local KeyObj = {Type = "Keybind", Value = BoundKey}
@@ -1843,7 +1867,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     nextX = nextX - 22
                     ReflowLabel()
 
-                    Dots.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
+                    Dots.MouseEnter:Connect(function() if HoverBlocked(Dots) then return end _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
                     Dots.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
 
                     local PANEL_W = 220
@@ -1893,7 +1917,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                  local Dragging = false
                  local loopRunning = false
 
-                 Bg.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
+                 Bg.MouseEnter:Connect(function() if HoverBlocked(Bg) then return end _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
                  Bg.MouseLeave:Connect(function() if not Dragging then _0xd5fe._0xa4bd:Create(BgStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play() _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end end)
 
                  -- Purple shades the fill cycles between while held
@@ -2010,7 +2034,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
                     OptionRefs[opt] = {Btn = OptBtn, Text = OptText, Bar = OptBar}
 
-                    OptBtn.MouseEnter:Connect(function()
+                    OptBtn.MouseEnter:Connect(function() if HoverBlocked(OptBtn) then return end
                         _0xd5fe._0xa4bd:Create(OptBtn, TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play()
                         if DropdownObj.Value ~= opt then
                             _0xd5fe._0xa4bd:Create(OptText, TweenInfo.new(0.12), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play()
@@ -2052,7 +2076,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     UpdateSelectedVisual()
                 end
                 
-                Btn.MouseEnter:Connect(function() 
+                Btn.MouseEnter:Connect(function() if HoverBlocked(Btn) then return end 
                     _0xd5fe._0xa4bd:Create(DropStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() 
                     _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() 
                     _0xd5fe._0xa4bd:Create(Arrow, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
@@ -2160,7 +2184,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         end
                     end
                     
-                    OptBtn.MouseEnter:Connect(function() 
+                    OptBtn.MouseEnter:Connect(function() if HoverBlocked(OptBtn) then return end 
                         if not Selected[opt] then
                             _0xd5fe._0xa4bd:Create(OptBtn, TweenInfo.new(0.1), {BackgroundTransparency = 0, BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
                         end
@@ -2214,7 +2238,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     UpdateText()
                 end
                 
-                Btn.MouseEnter:Connect(function() 
+                Btn.MouseEnter:Connect(function() if HoverBlocked(Btn) then return end 
                     _0xd5fe._0xa4bd:Create(DropStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play() 
                     _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() 
                     _0xd5fe._0xa4bd:Create(Arrow, TweenInfo.new(0.15), {ImageColor3 = _0xd5fe._0x0e5f.AccentColor}):Play()
@@ -2264,7 +2288,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 _0xd5fe._0x36b7("UICorner", {Parent = ColorBtn, CornerRadius = UDim.new(0,5)})
                 local ColorStroke = _0xd5fe._0x36b7("UIStroke", {Parent = ColorBtn, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1, Transparency = 1})
                 
-                ColorBtn.MouseEnter:Connect(function() 
+                ColorBtn.MouseEnter:Connect(function() if HoverBlocked(ColorBtn) then return end 
                     _0xd5fe._0xa4bd:Create(ColorStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play()
                     _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play()
                 end)
@@ -2544,7 +2568,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     end
                 }
                 
-                Btn.MouseEnter:Connect(function() 
+                Btn.MouseEnter:Connect(function() if HoverBlocked(Btn) then return end 
                     _0xd5fe._0xa4bd:Create(BtnStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play()
                     _0xd5fe._0xa4bd:Create(Label, TweenInfo.new(0.15), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play()
                 end)
@@ -2576,7 +2600,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 _0xd5fe._0x51c3(Btn, 90)
                 _0xd5fe._0x99aa(Btn, 0.25)
                 
-                Btn.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play() end)
+                Btn.MouseEnter:Connect(function() if HoverBlocked(Btn) then return end _0xd5fe._0xa4bd:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor}):Play() end)
                 Btn.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element}):Play() end)
                 Btn.MouseButton1Click:Connect(function() pcall(Callback) end)
             end

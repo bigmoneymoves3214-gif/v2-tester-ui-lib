@@ -1358,13 +1358,13 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         })
         _0xd5fe._0x36b7("UICorner", {Parent = TabBtn, CornerRadius = UDim.new(0, 4)})
 
-        -- The single highlight for the active tab. Anchored to the chip's
-        -- bottom edge with no offset, so it sits ON the box's bottom line
-        -- rather than floating inside it.
+        -- The single highlight for the active tab. Centre-anchored on the
+        -- chip's bottom edge (0.5 rather than 1), so the bar straddles the
+        -- line - half inside the box, half hanging below it.
         local TabBar = _0xd5fe._0x36b7("Frame", {
             Parent = TabBtn,
             Name = "Bar",
-            AnchorPoint = Vector2.new(0.5, 1),
+            AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(0.5, 0, 1, 0),
             Size = UDim2.new(0, 0, 0, 2),
             BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,

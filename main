@@ -1356,7 +1356,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             BorderSizePixel = 0,
             Text = ""
         })
-        _0xd5fe._0x36b7("UICorner", {Parent = TabBtn, CornerRadius = UDim.new(0, 6)})
+        -- Square chip, no UICorner: hard corners on the selected-tab box.
 
         -- The single highlight for the active tab: one flat accent bar sitting
         -- under the label. No bloom image behind it - that read as a second,
@@ -1372,8 +1372,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             BorderSizePixel = 0,
             ZIndex = 2
         })
-        -- Deliberately no UICorner: this is the flat bar sitting under the
-        -- label, square ends, not a rounded pill.
+        _0xd5fe._0x36b7("UICorner", {Parent = TabBar, CornerRadius = UDim.new(1, 0)})
 
         local TabIcon = nil
         local TabLetter = nil
@@ -1490,7 +1489,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
             -- The bar wipes out from centre. Quart so it settles rather than
             -- snapping into place.
-            _0xd5fe._0xa4bd:Create(TabBar, TweenInfo.new(0.28, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 28, 0, 3), BackgroundTransparency = 0}):Play()
+            _0xd5fe._0xa4bd:Create(TabBar, TweenInfo.new(0.28, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 20, 0, 3), BackgroundTransparency = 0}):Play()
 
             -- Topbar shows the active tab name
             if _0xd5fe._0x0e5f.TopTabLabel then

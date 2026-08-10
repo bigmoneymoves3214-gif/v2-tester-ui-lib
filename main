@@ -1390,7 +1390,8 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             BorderSizePixel = 0,
             ZIndex = 2
         })
-        _0xd5fe._0x36b7("UICorner", {Parent = TabBar, CornerRadius = UDim.new(1, 0)})
+        -- Deliberately no UICorner: this is the flat bar sitting under the
+        -- label, square ends, not a rounded pill.
 
         local TabIcon = nil
         local TabLetter = nil

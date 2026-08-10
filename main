@@ -1356,16 +1356,16 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             BorderSizePixel = 0,
             Text = ""
         })
-        -- Square chip, no UICorner: hard corners on the selected-tab box.
+        _0xd5fe._0x36b7("UICorner", {Parent = TabBtn, CornerRadius = UDim.new(0, 4)})
 
-        -- The single highlight for the active tab: one flat accent bar sitting
-        -- under the label. No bloom image behind it - that read as a second,
-        -- oversized purple blob rather than a glow on this bar.
+        -- The single highlight for the active tab. Anchored to the chip's
+        -- bottom edge with no offset, so it sits ON the box's bottom line
+        -- rather than floating inside it.
         local TabBar = _0xd5fe._0x36b7("Frame", {
             Parent = TabBtn,
             Name = "Bar",
             AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.new(0.5, 0, 1, -3),
+            Position = UDim2.new(0.5, 0, 1, 0),
             Size = UDim2.new(0, 0, 0, 2),
             BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
             BackgroundTransparency = 1,

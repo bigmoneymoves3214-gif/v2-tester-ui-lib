@@ -2089,6 +2089,25 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     Value = Default
                 }
 
+                -- Conditional visibility. The groupbox lays its children out
+                -- with a UIListLayout, and that layout ignores invisible
+                -- children - so hiding the frame also closes the gap it left,
+                -- and everything below shifts up on its own. No relayout call
+                -- needed.
+                --
+                --   local d = box:AddDropdown("Font", {...}, "Original", fn)
+                --   d:SetVisible(method == "V2")
+                function DropdownObj:SetVisible(state)
+                    DropFrame.Visible = state and true or false
+                    -- Collapse the popup too, or a hidden dropdown left open
+                    -- keeps its list floating over whatever replaced it.
+                    if not state then
+                        Open = false
+                        ListFrame.Size = UDim2.new(1, 0, 0, 0)
+                        Arrow.Rotation = 0
+                    end
+                end
+
                 local OptionRefs = {}
                 local function UpdateSelectedVisual()
                     for o, refs in pairs(OptionRefs) do

@@ -996,6 +996,233 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         ZIndex = 2
     })
     
+    ---------------------------------------------------------------
+    -- SEARCH BAR
+    --
+    -- Sits immediately left of the minimise button. Background matches the
+    -- window itself (Theme.Background) with only a hairline Outline stroke, so
+    -- it reads as an inset field rather than a raised control.
+    ---------------------------------------------------------------
+    local SEARCH_W = 170
+    local SearchBox = _0xd5fe._0x36b7("Frame", {
+        Name = "SearchBox",
+        Parent = Topbar,
+        BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Background,
+        Position = UDim2.new(1, -(45 + SEARCH_W + 8), 0.5, -13),
+        Size = UDim2.new(0, SEARCH_W, 0, 26),
+        BorderSizePixel = 0,
+        ZIndex = 2
+    })
+    _0xd5fe._0x36b7("UICorner", {Parent = SearchBox, CornerRadius = UDim.new(0, 4)})
+    local SearchStroke = _0xd5fe._0x36b7("UIStroke", {Parent = SearchBox, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
+
+    _0xd5fe._0x36b7("ImageLabel", {
+        Parent = SearchBox,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 7, 0.5, -7),
+        Size = UDim2.new(0, 14, 0, 14),
+        Image = _0xd5fe._0x0e5f.Icons.search,
+        ImageColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+        ZIndex = 3
+    })
+
+    local SearchInput = _0xd5fe._0x36b7("TextBox", {
+        Parent = SearchBox,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 26, 0, 0),
+        Size = UDim2.new(1, -32, 1, 0),
+        Text = "",
+        PlaceholderText = "Search",
+        Font = _0xd5fe._0x0e5f.Font,
+        TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
+        PlaceholderColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false,
+        ZIndex = 3
+    })
+
+    -- Results list. Parented to Main rather than the box so it can overhang the
+    -- topbar without being clipped by it.
+    local ResultList = _0xd5fe._0x36b7("Frame", {
+        Name = "SearchResults",
+        Parent = Main,
+        BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section,
+        Position = UDim2.new(1, -(45 + SEARCH_W + 8), 0, 40),
+        Size = UDim2.new(0, SEARCH_W, 0, 0),
+        BorderSizePixel = 0,
+        Visible = false,
+        ClipsDescendants = true,
+        ZIndex = 60
+    })
+    _0xd5fe._0x36b7("UICorner", {Parent = ResultList, CornerRadius = UDim.new(0, 4)})
+    _0xd5fe._0x36b7("UIStroke", {Parent = ResultList, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
+    local ResultLayout = _0xd5fe._0x36b7("UIListLayout", {Parent = ResultList, SortOrder = Enum.SortOrder.LayoutOrder})
+
+    SearchInput.Focused:Connect(function()
+        _0xd5fe._0xa4bd:Create(SearchStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.AccentColor}):Play()
+    end)
+    SearchInput.FocusLost:Connect(function()
+        _0xd5fe._0xa4bd:Create(SearchStroke, TweenInfo.new(0.15), {Color = _0xd5fe._0x0e5f.Theme.Outline}):Play()
+    end)
+
+    -- Brief accent wash over the card the result lives in, so the eye lands on
+    -- it after the tab switch. Drawn as an overlay rather than by recolouring
+    -- the card, which would fight the acrylic system and any active tween.
+    local function PulseCard(card)
+        if not card or not card.Parent then return end
+        local old = card:FindFirstChild("SearchPulse")
+        if old then old:Destroy() end
+
+        local Pulse = _0xd5fe._0x36b7("Frame", {
+            Name = "SearchPulse",
+            Parent = card,
+            BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            ZIndex = 0
+        })
+        _0xd5fe._0x36b7("UICorner", {Parent = Pulse, CornerRadius = UDim.new(0, 4)})
+
+        _0xd5fe._0xa4bd:Create(Pulse, TweenInfo.new(0.25), {BackgroundTransparency = 0.75}):Play()
+        task.delay(0.35, function()
+            if Pulse and Pulse.Parent then
+                _0xd5fe._0xa4bd:Create(Pulse, TweenInfo.new(0.65), {BackgroundTransparency = 1}):Play()
+                task.delay(0.7, function()
+                    if Pulse and Pulse.Parent then Pulse:Destroy() end
+                end)
+            end
+        end)
+    end
+
+    local function CloseResults()
+        ResultList.Visible = false
+        ResultList.Size = UDim2.new(0, SEARCH_W, 0, 0)
+        for _, c in pairs(ResultList:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+    end
+
+    local function GoTo(entry)
+        CloseResults()
+        SearchInput.Text = ""
+
+        pcall(function()
+            if entry.ctx then
+                if entry.ctx.activate then entry.ctx.activate() end
+                -- Subtab after the tab, or the tab switch would hide it again.
+                if entry.ctx.subActivate then entry.ctx.subActivate() end
+            end
+        end)
+
+        -- One frame of slack so the page is actually visible before the pulse.
+        task.delay(0.08, function() PulseCard(entry.card) end)
+    end
+
+    local function RunSearch(query)
+        for _, c in pairs(ResultList:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+
+        query = string.lower(query or "")
+        if query == "" then
+            CloseResults()
+            return
+        end
+
+        -- Name matches rank above groupbox-only matches, so typing "destroy"
+        -- surfaces the Destroy Player toggle before every option inside it.
+        local hits, seen = {}, {}
+        for _, e in ipairs(_0xd5fe._0x0e5f.SearchIndex) do
+            local n = string.lower(e.name)
+            local b = string.lower(e.box or "")
+            local rank
+            if string.find(n, query, 1, true) then rank = 1
+            elseif string.find(b, query, 1, true) then rank = 2 end
+            if rank then
+                local key = e.name .. "|" .. tostring(e.box)
+                if not seen[key] then
+                    seen[key] = true
+                    table.insert(hits, {e = e, rank = rank})
+                end
+            end
+        end
+
+        table.sort(hits, function(a, b)
+            if a.rank ~= b.rank then return a.rank < b.rank end
+            return #a.e.name < #b.e.name
+        end)
+
+        local MAX = 8
+        local shown = math.min(#hits, MAX)
+        if shown == 0 then
+            CloseResults()
+            return
+        end
+
+        for i = 1, shown do
+            local e = hits[i].e
+            local Row = _0xd5fe._0x36b7("TextButton", {
+                Parent = ResultList,
+                BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 0, 32),
+                Text = "",
+                AutoButtonColor = false,
+                BorderSizePixel = 0,
+                LayoutOrder = i,
+                ZIndex = 61
+            })
+            _0xd5fe._0x36b7("TextLabel", {
+                Parent = Row,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 9, 0, 3),
+                Size = UDim2.new(1, -14, 0, 15),
+                Text = e.name,
+                Font = _0xd5fe._0x0e5f.Font,
+                TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 62
+            })
+            -- Breadcrumb, so two options with the same name stay tellable apart.
+            local trail = (e.ctx and e.ctx.tabName or "?")
+                .. (e.ctx and e.ctx.subName and (" > " .. e.ctx.subName) or "")
+                .. " > " .. tostring(e.box)
+            _0xd5fe._0x36b7("TextLabel", {
+                Parent = Row,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 9, 0, 16),
+                Size = UDim2.new(1, -14, 0, 13),
+                Text = trail,
+                Font = _0xd5fe._0x0e5f.Font,
+                TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 62
+            })
+
+            Row.MouseEnter:Connect(function()
+                _0xd5fe._0xa4bd:Create(Row, TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play()
+            end)
+            Row.MouseLeave:Connect(function()
+                _0xd5fe._0xa4bd:Create(Row, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+            end)
+            Row.MouseButton1Click:Connect(function() GoTo(e) end)
+        end
+
+        ResultList.Visible = true
+        _0xd5fe._0xa4bd:Create(ResultList, TweenInfo.new(0.18, Enum.EasingStyle.Quart),
+            {Size = UDim2.new(0, SEARCH_W, 0, shown * 32)}):Play()
+    end
+
+    SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+        RunSearch(SearchInput.Text)
+    end)
+
     MinBtn.MouseEnter:Connect(function() _0xd5fe._0xa4bd:Create(MinBtn, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end)
     MinBtn.MouseLeave:Connect(function() _0xd5fe._0xa4bd:Create(MinBtn, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end)
     
@@ -1075,7 +1302,12 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 Sidebar.Visible = true
                 Content.Visible = true
                 for _, v in pairs(Main:GetChildren()) do
-                    if v:IsA("Frame") and v.Name ~= "Shadow" then v.Visible = true end
+                    -- SearchResults is excluded: it is only ever shown by an
+                    -- active query, and a blanket restore would pop an empty
+                    -- dropdown open every time the window is un-minimised.
+                    if v:IsA("Frame") and v.Name ~= "Shadow" and v.Name ~= "SearchResults" then
+                        v.Visible = true
+                    end
                 end
                 Main.ClipsDescendants = false
             end)
@@ -1610,7 +1842,8 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             SubBtn.MouseEnter:Connect(function() if HoverBlocked(SubBtn) then return end if SubBtn.BackgroundTransparency > 0.5 then _0xd5fe._0xa4bd:Create(SubLabel, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.Text}):Play() end end)
             SubBtn.MouseLeave:Connect(function() if SubBtn.BackgroundTransparency > 0.5 then _0xd5fe._0xa4bd:Create(SubLabel, TweenInfo.new(0.2), {TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim}):Play() end end)
 
-            SubBtn.MouseButton1Click:Connect(function()
+            -- Named rather than inline so search navigation can call it too.
+            local function ActivateSub()
                 for _,v in pairs(SubTopBar:GetChildren()) do
                      if v:IsA("TextButton") then SetChipActive(v, false) end
                 end
@@ -1620,7 +1853,9 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 SubContent.Position = UDim2.new(0, 0, 0, 52)
                 SubContent.Visible = true
                 _0xd5fe._0xa4bd:Create(SubContent, TweenInfo.new(0.28, Enum.EasingStyle.Quart), {Position = UDim2.new(0, 0, 0, 40)}):Play()
-            end)
+            end
+
+            SubBtn.MouseButton1Click:Connect(ActivateSub)
 
             -- Auto-activate the first subtab
             local subcount = 0
@@ -1630,14 +1865,33 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                  SubContent.Visible = true
             end
 
+            -- Stamped just before each CreateGroupbox call so the box (and every
+            -- option inside it) records how to navigate back here.
+            local SubCtx = {
+                tabName = Name,
+                subName = SubName,
+                activate = Activate,
+                subActivate = ActivateSub
+            }
+
             return {
-                AddLeftGroupbox = function(self, Name) return self:CreateGroupbox(SLeft, Name) end,
-                AddRightGroupbox = function(self, Name) return self:CreateGroupbox(SRight, Name) end,
+                AddLeftGroupbox = function(self, BoxName)
+                    _0xd5fe._0x0e5f._RegCtx = SubCtx
+                    return self:CreateGroupbox(SLeft, BoxName)
+                end,
+                AddRightGroupbox = function(self, BoxName)
+                    _0xd5fe._0x0e5f._RegCtx = SubCtx
+                    return self:CreateGroupbox(SRight, BoxName)
+                end,
                 CreateGroupbox = Tab.CreateGroupbox
             }
         end
         
         function Tab:CreateGroupbox(Parent, Name)
+            -- Captured at build time: whichever tab/subtab helper created this
+            -- box left its navigation context here just before calling in.
+            local Ctx = _0xd5fe._0x0e5f._RegCtx
+
             local Box = _0xd5fe._0x36b7("Frame", {
                 Parent = Parent,
                 BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Section,
@@ -1645,6 +1899,22 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BorderSizePixel = 0
             })
+
+            -- Upvalue for every Group:AddX below, so each option can register
+            -- itself as it is built without threading state through arguments.
+            local function Reg(ItemName, ItemFrame)
+                if not ItemName or ItemName == "" then return end
+                table.insert(_0xd5fe._0x0e5f.SearchIndex, {
+                    name = tostring(ItemName),
+                    box = Name,
+                    card = Box,
+                    frame = ItemFrame,
+                    ctx = Ctx
+                })
+            end
+
+            -- The card header is searchable in its own right.
+            Reg(Name, Box)
             _0xd5fe._0x36b7("UICorner", {Parent = Box, CornerRadius = UDim.new(0, 4)})
             _0xd5fe._0x99aa(Box, 0.35)
             
@@ -1677,6 +1947,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
             function Group:AddToggle(Text, Default, Callback, TooltipOptions)
                 local Frame = _0xd5fe._0x36b7("TextButton", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,22), Text = "", AutoButtonColor = false})
+                Reg(Text, Frame)
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, TextSize = 13, TextXAlignment=Enum.TextXAlignment.Left, Size = UDim2.new(1,-45,1,0)})
                 
                 -- Toggle switch (pill shape, KH style: muted purple track when off)
@@ -1947,6 +2218,12 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     local SettingsGroup = ParentTab:CreateGroupbox(Panel.Gui, MenuName or Text)
 
                     Dots.MouseButton1Click:Connect(function()
+                        -- One full turn on every press. Rotation is reset to 0
+                        -- first so repeated clicks always start from square -
+                        -- tweening to 360 from 360 would just sit still.
+                        Dots.Rotation = 0
+                        _0xd5fe._0xa4bd:Create(Dots, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 360}):Play()
+
                         -- open directly below the dots, left edge at the dots,
                         -- extending right (matches the requested layout)
                         local p = Dots.AbsolutePosition
@@ -1962,6 +2239,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             
             function Group:AddSlider(Text, Min, Max, Default, Callback)
                  local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,44)})
+                Reg(Text, Frame)
                  local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Text = Text, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Font = _0xd5fe._0x0e5f.Font, TextSize=13, Size = UDim2.new(1,-52,0,16), TextXAlignment=Enum.TextXAlignment.Left})
 
                  -- Square boxed track (fill-in bar); same fill as the card so only
@@ -2065,6 +2343,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             
             function Group:AddDropdown(Text, Options, Default, Callback)
                 local DropFrame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,50), ClipsDescendants = false})
+                Reg(Text, DropFrame)
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = DropFrame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,0,0,18), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
                 local Btn = _0xd5fe._0x36b7("TextButton", {Parent = DropFrame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(1,0,0,28), Position = UDim2.new(0,0,0,20), Text = "", Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 13, AutoButtonColor = false, BorderSizePixel = 0})
@@ -2202,6 +2481,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             function Group:AddMultiDropdown(Text, Options, Defaults, Callback)
                 Defaults = Defaults or {}
                 local DropFrame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,50), ClipsDescendants = false})
+                Reg(Text, DropFrame)
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = DropFrame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,0,0,18), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
                 local Btn = _0xd5fe._0x36b7("TextButton", {Parent = DropFrame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(1,0,0,28), Position = UDim2.new(0,0,0,20), Text = "", Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 13, AutoButtonColor = false, BorderSizePixel = 0})
@@ -2373,6 +2653,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             
             function Group:AddColorPicker(Text, Default, Callback)
                 local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,26)})
+                Reg(Text, Frame)
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,-75,1,0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
                 local ColorBtn = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = Default or Color3.new(1,1,1), Size = UDim2.new(0,70,0,22), Position = UDim2.new(1,-70,0,2), Text = "", Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 11, AutoButtonColor = false, BorderSizePixel = 0})
@@ -2638,6 +2919,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             
             function Group:AddKeybind(Text, Default, Callback)
                 local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,26)})
+                Reg(Text, Frame)
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,-75,1,0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
                 -- same chip styling as the inline toggle keybind
@@ -2686,6 +2968,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             
             function Group:AddButton(Text, Callback)
                 local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Container, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(1,0,0,30), Text = Text, Font = _0xd5fe._0x0e5f.FontBold, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 13, AutoButtonColor = false, BorderSizePixel = 0})
+                Reg(Text, Btn)
                 _0xd5fe._0x36b7("UICorner", {Parent = Btn, CornerRadius = UDim.new(0,8)})
                 _0xd5fe._0x36b7("UIStroke", {Parent = Btn, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
                 _0xd5fe._0x51c3(Btn, 90)
@@ -2698,6 +2981,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             
             function Group:AddInput(Text, Placeholder, Callback)
                 local Frame = _0xd5fe._0x36b7("Frame", {Parent = Container, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,50)})
+                Reg(Text, Frame)
                 _0xd5fe._0x36b7("TextLabel", {Parent = Frame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,0,0,18), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
                 local Box = _0xd5fe._0x36b7("TextBox", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Position = UDim2.new(0,0,0,22), Size = UDim2.new(1,0,0,26), PlaceholderText = Placeholder or "", Text = "", Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0, ClearTextOnFocus = false})
@@ -2735,8 +3019,16 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
             return Group
         end
         
-        function Tab:AddLeftGroupbox(Name) return self:CreateGroupbox(Left, Name) end
-        function Tab:AddRightGroupbox(Name) return self:CreateGroupbox(Right, Name) end
+        -- Tab-level boxes (no subtab). Same context stamp as the subtab helpers.
+        local TabCtx = { tabName = Name, subName = nil, activate = Activate, subActivate = nil }
+        function Tab:AddLeftGroupbox(BoxName)
+            _0xd5fe._0x0e5f._RegCtx = TabCtx
+            return self:CreateGroupbox(Left, BoxName)
+        end
+        function Tab:AddRightGroupbox(BoxName)
+            _0xd5fe._0x0e5f._RegCtx = TabCtx
+            return self:CreateGroupbox(Right, BoxName)
+        end
         
         return Tab
     end
@@ -2748,6 +3040,15 @@ end
 local HttpService = game:GetService("HttpService")
 
 _0xd5fe._0x0e5f.Options = {}
+
+-- Search index. One row per searchable thing: every option, plus each groupbox
+-- header (so "Destroy Player" finds the card itself, not only the toggles in it).
+--   name  - what the user reads on screen
+--   box   - the groupbox header it lives under
+--   card  - the groupbox Frame, used for the highlight pulse
+--   ctx   - {tabName, subName, activate, subActivate} for navigation
+_0xd5fe._0x0e5f.SearchIndex = {}
+_0xd5fe._0x0e5f._RegCtx = nil
 
 _0xd5fe._0x0e5f.SaveManager = {
     Folder = "UILibraryConfigs",

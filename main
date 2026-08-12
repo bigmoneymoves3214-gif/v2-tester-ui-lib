@@ -368,6 +368,48 @@ _0xd5fe._0x51c3 = function(parent, rotation)
     })
 end
 
+---------------------------------------------------------------------
+-- Keybind values.
+--
+-- A bind is either an Enum.KeyCode (keyboard) or an Enum.UserInputType
+-- (MouseButton1/2/3), so these helpers hide the difference from callers.
+---------------------------------------------------------------------
+_0xd5fe._0x0e5f.MouseBinds = {
+    [Enum.UserInputType.MouseButton1] = "M1",
+    [Enum.UserInputType.MouseButton2] = "M2",
+    [Enum.UserInputType.MouseButton3] = "M3",
+}
+
+-- Short display label for a bind ("W", "M1", "---").
+function _0xd5fe._0x0e5f.KeyName(bind)
+    if not bind then return "---" end
+    return _0xd5fe._0x0e5f.MouseBinds[bind] or bind.Name
+end
+
+-- Does this InputBegan/InputEnded event correspond to `bind`?
+function _0xd5fe._0x0e5f.KeyMatches(input, bind)
+    if not bind or typeof(bind) ~= "EnumItem" then return false end
+    if bind.EnumType == Enum.KeyCode then
+        return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bind
+    end
+    if bind.EnumType == Enum.UserInputType then
+        return input.UserInputType == bind
+    end
+    return false
+end
+
+-- Is `bind` currently held? (for hold-to-aim style features)
+function _0xd5fe._0x0e5f.IsBindDown(bind)
+    if not bind or typeof(bind) ~= "EnumItem" then return false end
+    local ok, down = pcall(function()
+        if bind.EnumType == Enum.KeyCode then
+            return _0xd5fe._0x8efd:IsKeyDown(bind)
+        end
+        return _0xd5fe._0x8efd:IsMouseButtonPressed(bind)
+    end)
+    return ok and down or false
+end
+
 -- Acrylic registry: surfaces that fade with :SetAcrylic(true)
 _0xd5fe._0x0e5f._acrylicParts = {}
 _0xd5fe._0x99aa = function(inst, acrylicTransparency)
@@ -1314,8 +1356,9 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         end
     end)
 
-    _0xd5fe._0x8efd.InputBegan:Connect(function(input)
-        if input.KeyCode == _0xd5fe._0x0e5f.ToggleKey then
+    _0xd5fe._0x8efd.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if _0xd5fe._0x0e5f.KeyMatches(input, _0xd5fe._0x0e5f.ToggleKey) then
             _0xd5fe._0x0e5f.Open = not _0xd5fe._0x0e5f.Open 
             Main.Visible = _0xd5fe._0x0e5f.Open 
             CustomCursor.Visible = _0xd5fe._0x0e5f.Open
@@ -1542,16 +1585,23 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
         local pendingKey = nil
         local con
-        con = _0xd5fe._0x8efd.InputBegan:Connect(function(input)
+        con = _0xd5fe._0x8efd.InputBegan:Connect(function(input, gameProcessed)
+            local key
             if input.UserInputType == Enum.UserInputType.Keyboard then
-                local key = input.KeyCode
+                key = input.KeyCode
                 if key == Enum.KeyCode.Unknown or key == Enum.KeyCode.Escape then
                     Modal:Destroy()
                     con:Disconnect()
                     return
                 end
+            elseif _0xd5fe._0x0e5f.MouseBinds[input.UserInputType] and not gameProcessed then
+                -- Mouse binds are accepted only when the click did NOT land on
+                -- GUI, so clicking the modal's own Save/Reset can't be captured.
+                key = input.UserInputType
+            end
+            if key then
                 pendingKey = key
-                KeyChipText.Text = key.Name
+                KeyChipText.Text = _0xd5fe._0x0e5f.KeyName(key)
                 KeyChipText.TextColor3 = _0xd5fe._0x0e5f.AccentColor
                 _0xd5fe._0xa4bd:Create(KeyChip, TweenInfo.new(0.15), {BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element:Lerp(_0xd5fe._0x0e5f.AccentColor, 0.16)}):Play()
                 ModalStatus.Text = "Save to confirm  ·  Reset to remove"
@@ -2151,7 +2201,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
                         Size = UDim2.new(0, 42, 0, 18),
                         Position = UDim2.new(1, nextX - 42, 0, 2),
-                        Text = (BoundKey and BoundKey.Name) or "---",
+                        Text = _0xd5fe._0x0e5f.KeyName(BoundKey),
                         Font = _0xd5fe._0x0e5f.FontMono,
                         TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
                         TextSize = 10,
@@ -2168,7 +2218,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     KeyObj.Set = function(self, key)
                         BoundKey = key
                         self.Value = key
-                        Chip.Text = (key and key.Name) or "---"
+                        Chip.Text = _0xd5fe._0x0e5f.KeyName(key)
                         if KeyCallback then pcall(KeyCallback, key) end
                     end
 
@@ -2182,8 +2232,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     -- pressing the bound key flips the toggle
                     _0xd5fe._0x8efd.InputBegan:Connect(function(input, gameProcessed)
                         if gameProcessed then return end
-                        if input.UserInputType == Enum.UserInputType.Keyboard
-                           and BoundKey and input.KeyCode == BoundKey then
+                        if _0xd5fe._0x0e5f.KeyMatches(input, BoundKey) then
                             State = not State
                             Update()
                         end
@@ -2923,7 +2972,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 local Label = _0xd5fe._0x36b7("TextLabel", {Parent = Frame, Text = Text, Font = _0xd5fe._0x0e5f.Font, TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim, Size = UDim2.new(1,-75,1,0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13})
                 
                 -- same chip styling as the inline toggle keybind
-                local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(0,52,0,18), Position = UDim2.new(1,-52,0,4), Text = (Default and Default.Name) or "---", Font = _0xd5fe._0x0e5f.FontMono, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 10, AutoButtonColor = false, BorderSizePixel = 0})
+                local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Frame, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(0,52,0,18), Position = UDim2.new(1,-52,0,4), Text = _0xd5fe._0x0e5f.KeyName(Default), Font = _0xd5fe._0x0e5f.FontMono, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 10, AutoButtonColor = false, BorderSizePixel = 0})
                 local BtnStroke = _0xd5fe._0x36b7("UIStroke", {Parent = Btn, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1, Transparency = 1})
                 _0xd5fe._0x99aa(Btn, 0.25)
                 
@@ -2932,7 +2981,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     Value = Default,
                     Set = function(self, key)
                         self.Value = key
-                        Btn.Text = key and key.Name or "---"
+                        Btn.Text = _0xd5fe._0x0e5f.KeyName(key)
                         -- Update _0xd5fe._0x0e5f.ToggleKey if this is the menu toggle keybind
                         if Text:lower():find("toggle") or Text:lower():find("menu") then
                             _0xd5fe._0x0e5f.ToggleKey = key

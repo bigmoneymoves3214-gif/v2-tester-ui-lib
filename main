@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.2",
+    Version = "v4.3",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -4159,30 +4159,46 @@ end
 --
 -- Rows are rebuilt only when the content actually changes (a signature of
 -- key + name + state), so the 0.15 s poll costs one string compare on almost
--- every tick instead of tearing down and rebuilding labels.
+-- every tick instead of tearing down and rebuilding rows.
 --
--- Styling follows the menu: Theme.Background panel, Outline stroke, rounded
--- corners, an accent bar under the header, FontMono for the key chips and the
--- theme's own Success / Error colours for the state.
+-- STYLING follows the library's own vocabulary rather than inventing one:
+--   * floating surface = Theme.Background + 8px corner + 1px Outline stroke +
+--     drop shadow, the same treatment CreateWindow gives the window and the
+--     loading screen (the only other panels that float over the game).
+--   * header = FontBold 14 in Theme.Text, inset 12px, 32px tall, followed by a
+--     FULL-WIDTH 1px Theme.Outline rule. That is exactly how Tab:CreateGroupbox
+--     draws a card header, and it is what the first version got wrong - it used
+--     a 13px title and an inset accent bar, which belonged to nothing.
+--   * each key is a real CHIP - Theme.Element fill, 4px corner, 1px Outline
+--     stroke, FontMono 10 - identical to the key chips on keybind rows inside
+--     the menu, instead of the accent-coloured [BRACKETS] of the first version.
+--   * names use Font 13 / Theme.Text and the state uses Theme.Success and
+--     Theme.Error, the same colours notifications use for the same meaning.
+--   * corner radii stick to the library's set: 8 for the floating panel, 4 for
+--     chips. Radius 6 is inputs and 1,0 is pills, so neither applies here.
 ---------------------------------------------------------------------
 _0xd5fe._0x0e5f.KeybindListVisible = false
 
 do
     local TextService = game:GetService("TextService")
 
-    local W_MIN, ROW_H, HEAD_H, FONT_SIZE = 160, 18, 30, 13
+    local PAD      = 12   -- matches the groupbox header inset
+    local HEAD_H   = 32   -- matches the groupbox header height
+    local ROW_H    = 22
+    local CHIP_H   = 18
+    local CHIP_MIN = 34   -- a single letter still gets a chip-shaped chip
+    local GAP      = 8    -- chip -> name
+    local STATE_W  = 36
+    local W_MIN    = 170
+
+    -- Chip width is measured, not fixed. A fixed 46 px looked fine for "F" and
+    -- "M2" but clipped "RightControl" (60 px at FontMono 10) - which is the
+    -- DEFAULT menu toggle key, so it would have been the first thing anyone
+    -- saw. All chips in a render share the widest key's width so the names
+    -- still line up in a column.
+    local chipW = CHIP_MIN
+
     local KB = { frame = nil, list = nil, sig = nil, running = false }
-
-    local function hex(c)
-        return string.format("#%02X%02X%02X",
-            math.floor(c.R * 255 + 0.5),
-            math.floor(c.G * 255 + 0.5),
-            math.floor(c.B * 255 + 0.5))
-    end
-
-    local function esc(s)
-        return (tostring(s):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
-    end
 
     local function build()
         local root = _0xd5fe._0x0e5f._ScreenGui
@@ -4199,42 +4215,49 @@ do
             ZIndex = 50,
         })
         _0xd5fe._0x36b7("UICorner", {Parent = f, CornerRadius = UDim.new(0, 8)})
-        _0xd5fe._0x36b7("UIStroke", {Parent = f, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
-        _0xd5fe._0xfb1b(f, 0.55)
+        _0xd5fe._0x36b7("UIStroke", {
+            Parent = f,
+            Color = _0xd5fe._0x0e5f.Theme.Outline,
+            Thickness = 1,
+        })
+        _0xd5fe._0xfb1b(f, 0.2)
         _0xd5fe._0x99aa(f, 0.15)
 
         _0xd5fe._0x36b7("TextLabel", {
             Parent = f,
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, 10, 0, 5),
-            Size = UDim2.new(1, -20, 0, 16),
+            Position = UDim2.new(0, PAD, 0, 0),
+            Size = UDim2.new(1, -PAD * 2, 0, HEAD_H),
             Font = _0xd5fe._0x0e5f.FontBold,
             Text = "Keybinds",
-            TextSize = 13,
+            TextSize = 14,
             TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 51,
         })
 
-        -- accent bar under the header, same idea as the menu's tab indicator
-        local bar = _0xd5fe._0x36b7("Frame", {
+        -- Full-width rule under the header, as on every groupbox card.
+        _0xd5fe._0x36b7("Frame", {
             Parent = f,
-            BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
-            Position = UDim2.new(0, 10, 0, HEAD_H - 7),
-            Size = UDim2.new(1, -20, 0, 1),
+            BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Outline,
+            Position = UDim2.new(0, 0, 0, HEAD_H),
+            Size = UDim2.new(1, 0, 0, 1),
             BorderSizePixel = 0,
             ZIndex = 51,
         })
-        _0xd5fe._0x36b7("UICorner", {Parent = bar, CornerRadius = UDim.new(1, 0)})
 
         local list = _0xd5fe._0x36b7("Frame", {
             Parent = f,
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, 10, 0, HEAD_H),
-            Size = UDim2.new(1, -20, 1, -(HEAD_H + 4)),
+            Position = UDim2.new(0, PAD, 0, HEAD_H + 6),
+            Size = UDim2.new(1, -PAD * 2, 1, -(HEAD_H + 12)),
             ZIndex = 51,
         })
-        _0xd5fe._0x36b7("UIListLayout", {Parent = list, SortOrder = Enum.SortOrder.LayoutOrder})
+        _0xd5fe._0x36b7("UIListLayout", {
+            Parent = list,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 2),
+        })
 
         -- drag the whole panel, using the same helper the menu window uses
         _0xd5fe._0x02b5(f, f)
@@ -4268,24 +4291,76 @@ do
         return out
     end
 
-    local function addRow(order, rich, plain, color)
-        _0xd5fe._0x36b7("TextLabel", {
+    local function textWidth(s, size, font)
+        local ok, v = pcall(function()
+            return TextService:GetTextSize(s, size, font, Vector2.new(1000, 100)).X
+        end)
+        return (ok and v) or (#s * 7)
+    end
+
+    -- One row: key chip, name, optional ON/OFF. Returns the name's width so
+    -- the panel can size itself to the longest one.
+    local function addRow(order, e)
+        local row = _0xd5fe._0x36b7("Frame", {
             Parent = KB.list,
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, ROW_H),
-            Font = _0xd5fe._0x0e5f.Font,
-            TextSize = FONT_SIZE,
-            TextColor3 = color or _0xd5fe._0x0e5f.Theme.Text,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            RichText = true,
-            Text = rich,
             LayoutOrder = order,
             ZIndex = 51,
         })
-        local ok, size = pcall(function()
-            return TextService:GetTextSize(plain, FONT_SIZE, _0xd5fe._0x0e5f.Font, Vector2.new(1000, ROW_H))
-        end)
-        return (ok and size and size.X) or (#plain * 7)
+
+        -- Same chip as a keybind row inside the menu.
+        local chip = _0xd5fe._0x36b7("TextLabel", {
+            Parent = row,
+            BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element,
+            Position = UDim2.new(0, 0, 0.5, -CHIP_H / 2),
+            Size = UDim2.new(0, chipW, 0, CHIP_H),
+            Font = _0xd5fe._0x0e5f.FontMono,
+            Text = e.key,
+            TextSize = 10,
+            TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
+            BorderSizePixel = 0,
+            ZIndex = 52,
+        })
+        _0xd5fe._0x36b7("UICorner", {Parent = chip, CornerRadius = UDim.new(0, 4)})
+        _0xd5fe._0x36b7("UIStroke", {
+            Parent = chip,
+            Color = _0xd5fe._0x0e5f.Theme.Outline,
+            Thickness = 1,
+        })
+        _0xd5fe._0x99aa(chip, 0.25)
+
+        _0xd5fe._0x36b7("TextLabel", {
+            Parent = row,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, chipW + GAP, 0, 0),
+            Size = UDim2.new(1, -(chipW + GAP + STATE_W), 1, 0),
+            Font = _0xd5fe._0x0e5f.Font,
+            Text = e.name,
+            TextSize = 13,
+            TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 52,
+        })
+
+        if e.on ~= nil then
+            _0xd5fe._0x36b7("TextLabel", {
+                Parent = row,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(1, -STATE_W, 0, 0),
+                Size = UDim2.new(0, STATE_W, 1, 0),
+                Font = _0xd5fe._0x0e5f.FontBold,
+                Text = e.on and "ON" or "OFF",
+                TextSize = 11,
+                TextColor3 = e.on and _0xd5fe._0x0e5f.Theme.Success
+                                  or _0xd5fe._0x0e5f.Theme.Error,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                ZIndex = 52,
+            })
+        end
+
+        return textWidth(e.name, 13, _0xd5fe._0x0e5f.Font)
     end
 
     local function render()
@@ -4303,33 +4378,41 @@ do
         KB.sig = sig
 
         for _, ch in ipairs(KB.list:GetChildren()) do
-            if ch:IsA("TextLabel") then ch:Destroy() end
+            if not ch:IsA("UIListLayout") then ch:Destroy() end
         end
 
-        local keyHex  = hex(_0xd5fe._0x0e5f.AccentColor)
-        local onHex   = hex(_0xd5fe._0x0e5f.Theme.Success)
-        local offHex  = hex(_0xd5fe._0x0e5f.Theme.Error)
-        local nameHex = hex(_0xd5fe._0x0e5f.Theme.Text)
+        -- Size the chips to the longest key in THIS render, before any row is
+        -- built, so every chip matches and nothing clips.
+        chipW = CHIP_MIN
+        for _, e in ipairs(list) do
+            chipW = math.max(chipW, textWidth(e.key, 10, _0xd5fe._0x0e5f.FontMono) + 12)
+        end
 
         local widest = 0
         if #list == 0 then
-            widest = addRow(1, "No keybinds set", "No keybinds set", _0xd5fe._0x0e5f.Theme.TextDim)
+            _0xd5fe._0x36b7("TextLabel", {
+                Parent = KB.list,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 0, ROW_H),
+                Font = _0xd5fe._0x0e5f.Font,
+                Text = "No keybinds set",
+                TextSize = 13,
+                TextColor3 = _0xd5fe._0x0e5f.Theme.TextDim,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                LayoutOrder = 1,
+                ZIndex = 52,
+            })
+            widest = textWidth("No keybinds set", 13, _0xd5fe._0x0e5f.Font) - (chipW + GAP)
         else
             for i, e in ipairs(list) do
-                local rich = string.format('<font color="%s">[%s]</font>  <font color="%s">%s</font>',
-                    keyHex, esc(e.key), nameHex, esc(e.name))
-                local plain = "[" .. e.key .. "]  " .. e.name
-                if e.on ~= nil then
-                    rich = rich .. string.format(': <font color="%s">%s</font>',
-                        e.on and onHex or offHex, e.on and "ON" or "OFF")
-                    plain = plain .. ": " .. (e.on and "ON" or "OFF")
-                end
-                widest = math.max(widest, addRow(i, rich, plain))
+                widest = math.max(widest, addRow(i, e))
             end
         end
 
         local rows = math.max(#list, 1)
-        KB.frame.Size = UDim2.new(0, math.max(W_MIN, widest + 24), 0, HEAD_H + rows * ROW_H + 8)
+        local wanted = PAD + chipW + GAP + widest + 10 + STATE_W + PAD
+        KB.frame.Size = UDim2.new(0, math.max(W_MIN, wanted),
+                                  0, HEAD_H + 6 + rows * ROW_H + (rows - 1) * 2 + 8)
     end
 
     -- Library:SetKeybindList(true/false)

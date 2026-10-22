@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.4",
+    Version = "v4.5",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -4178,13 +4178,16 @@ _0xd5fe._0x0e5f.KeybindListVisible = false
 do
     local TextService = game:GetService("TextService")
 
-    local PAD       = 10
-    local HEAD_H    = 26
-    local ROW_H     = 18
-    local FONT_SIZE = 13
-    local W_MIN     = 150
+    local PAD        = 12
+    local HEAD_H     = 30
+    local ROW_H      = 21
+    local FONT_SIZE  = 14
+    local TITLE_SIZE = 14
+    local ICON       = 15   -- keyboard glyph beside the title
+    local ICON_GAP   = 6
+    local W_MIN      = 170
 
-    local KB = { frame = nil, list = nil, sig = nil, running = false, bar = nil }
+    local KB = { frame = nil, list = nil, sig = nil, running = false, bar = nil, icon = nil }
 
     local function hex(c)
         return string.format("#%02X%02X%02X",
@@ -4220,14 +4223,28 @@ do
         _0xd5fe._0xfb1b(f, 0.3)
         _0xd5fe._0x99aa(f, 0.15)
 
+        -- Keyboard glyph in the accent colour, so the panel is identifiable at
+        -- a glance and the theme colour appears in the header as well as the
+        -- bar. Tinted rather than baked, and re-tinted on each render so a
+        -- theme change follows.
+        KB.icon = _0xd5fe._0x36b7("ImageLabel", {
+            Parent = f,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, PAD, 0, math.floor((HEAD_H - 2 - ICON) / 2)),
+            Size = UDim2.new(0, ICON, 0, ICON),
+            Image = _0xd5fe._0x0e5f.Icons.keyboard,
+            ImageColor3 = _0xd5fe._0x0e5f.AccentColor,
+            ZIndex = 51,
+        })
+
         _0xd5fe._0x36b7("TextLabel", {
             Parent = f,
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, PAD, 0, 3),
-            Size = UDim2.new(1, -PAD * 2, 0, 16),
+            Position = UDim2.new(0, PAD + ICON + ICON_GAP, 0, 0),
+            Size = UDim2.new(1, -(PAD * 2 + ICON + ICON_GAP), 0, HEAD_H - 2),
             Font = _0xd5fe._0x0e5f.FontBold,
             Text = "Keybinds",
-            TextSize = 13,
+            TextSize = TITLE_SIZE,
             TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 51,
@@ -4330,6 +4347,7 @@ do
 
         -- Re-read every render so a theme change is picked up.
         if KB.bar then KB.bar.BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor end
+        if KB.icon then KB.icon.ImageColor3 = _0xd5fe._0x0e5f.AccentColor end
         local keyHex  = hex(_0xd5fe._0x0e5f.AccentColor)
         local onHex   = hex(_0xd5fe._0x0e5f.Theme.Success)
         local offHex  = hex(_0xd5fe._0x0e5f.Theme.Error)
@@ -4352,8 +4370,21 @@ do
             end
         end
 
+        -- The header is icon + gap + title, which can be wider than a short
+        -- list of rows, so the panel takes whichever needs more room.
+        local titleW = 0
+        local okT, sT = pcall(function()
+            return TextService:GetTextSize("Keybinds", TITLE_SIZE,
+                _0xd5fe._0x0e5f.FontBold, Vector2.new(1000, HEAD_H)).X
+        end)
+        if okT and sT then titleW = sT end
+
         local rows = math.max(#list, 1)
-        KB.frame.Size = UDim2.new(0, math.max(W_MIN, widest + PAD * 2 + 6),
+        local needed = math.max(
+            widest + PAD * 2 + 6,
+            PAD + ICON + ICON_GAP + titleW + PAD
+        )
+        KB.frame.Size = UDim2.new(0, math.max(W_MIN, needed),
                                   0, HEAD_H + 3 + rows * ROW_H + 6)
     end
 

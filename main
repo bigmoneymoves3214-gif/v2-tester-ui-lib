@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.5",
+    Version = "v4.6",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -4220,7 +4220,17 @@ do
             Color = _0xd5fe._0x0e5f.Theme.Outline,
             Thickness = 1,
         })
-        _0xd5fe._0xfb1b(f, 0.3)
+        -- Wider, slightly darker shadow than the library's default 15 px, so
+        -- the panel lifts off the game behind it rather than looking pasted
+        -- on. Widened per-panel instead of in _0xfb1b itself, because that
+        -- helper is shared with the window, the loading screen and every
+        -- groupbox card, and those are sitting on a solid surface already.
+        -- A wider spread at the same transparency reads weaker, hence 0.25.
+        local shadow = _0xd5fe._0xfb1b(f, 0.25)
+        if shadow then
+            shadow.Position = UDim2.new(0, -24, 0, -24)
+            shadow.Size = UDim2.new(1, 48, 1, 48)
+        end
         _0xd5fe._0x99aa(f, 0.15)
 
         -- Keyboard glyph in the accent colour, so the panel is identifiable at

@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.1",
+    Version = "v4.2",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -410,6 +410,57 @@ function _0xd5fe._0x0e5f.IsBindDown(bind)
     return ok and down or false
 end
 
+---------------------------------------------------------------------
+-- Keybind registry (feeds the Keybind List panel).
+--
+-- Library.Options is a dict, so iterating it gives no stable order and the
+-- panel's rows would shuffle on every rebuild. This is the ordered view,
+-- appended to in creation order by both keybind constructors.
+--
+-- Each slot is { Option, Name, Obj, IsOn }:
+--   Option - the Library.Options key, so the script can address the slot
+--   Name   - what the panel shows (tidied; overridable)
+--   Obj    - the keybind object, read for its current .Value
+--   IsOn   - optional predicate; nil means "state unknown, show no ON/OFF"
+---------------------------------------------------------------------
+_0xd5fe._0x0e5f.Keybinds = {}
+
+-- "Enable Silent Aim" / "SilentAimKeybind" both want to read "Silent Aim".
+local function _tidyBindName(name)
+    local s = tostring(name)
+    s = s:gsub("^Enable%s+", "")
+    s = s:gsub("%s*Keybind$", "")
+    s = s:gsub("%s*Key$", "")
+    -- split runs of CamelCase so "SilentAim" reads as "Silent Aim"
+    if not s:find("%s") then
+        s = s:gsub("(%l)(%u)", "%1 %2"):gsub("(%u)(%u%l)", "%1 %2")
+    end
+    if s == "" then s = tostring(name) end
+    return s
+end
+
+_0xd5fe._0x0e5f._RegisterKeybind = function(optionKey, label, obj, isOn)
+    table.insert(_0xd5fe._0x0e5f.Keybinds, {
+        Option = optionKey,
+        Name   = _tidyBindName(label),
+        Obj    = obj,
+        IsOn   = isOn,
+    })
+end
+
+-- Rename a row, or teach the panel how to read a standalone bind's state:
+--   Library:SetKeybindInfo("FlyKeybind", { Name = "Fly", IsOn = function() ... end })
+function _0xd5fe._0x0e5f:SetKeybindInfo(optionKey, info)
+    for _, slot in ipairs(_0xd5fe._0x0e5f.Keybinds) do
+        if slot.Option == optionKey then
+            if info.Name then slot.Name = info.Name end
+            if info.IsOn then slot.IsOn = info.IsOn end
+            return slot
+        end
+    end
+    return nil
+end
+
 -- Acrylic registry: surfaces that fade with :SetAcrylic(true)
 _0xd5fe._0x0e5f._acrylicParts = {}
 _0xd5fe._0x99aa = function(inst, acrylicTransparency)
@@ -554,6 +605,9 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     
     local ScreenGui = _0xd5fe._0x36b7("ScreenGui", { Name = _0xd5fe._0x740e:GenerateGUID(false), IgnoreGuiInset = true, ResetOnSpawn = false })
     _0xd5fe._0x38c6(ScreenGui)
+    -- Kept so HUD widgets built outside CreateWindow (the keybind list) can
+    -- parent into the same protected ScreenGui instead of making their own.
+    _0xd5fe._0x0e5f._ScreenGui = ScreenGui
     
     -- Branding watermark
     if BrandingText then
@@ -2239,6 +2293,11 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     end)
 
                     _0xd5fe._0x0e5f.Options[Text .. " Key"] = KeyObj
+                    -- Keybind List row. This one owns a toggle, so its ON/OFF
+                    -- state is readable without the script telling us.
+                    _0xd5fe._0x0e5f._RegisterKeybind(Text .. " Key", Text, KeyObj, function()
+                        return ToggleObj.Value == true
+                    end)
                     return KeyObj
                 end
 
@@ -3012,9 +3071,13 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                 end
                 
                 _0xd5fe._0x0e5f.Options[Text] = KeybindObj
+                -- Keybind List row. A standalone bind drives script-side state
+                -- the library cannot see, so it has no predicate until the
+                -- script supplies one via Library:SetKeybindInfo.
+                _0xd5fe._0x0e5f._RegisterKeybind(Text, Text, KeybindObj, nil)
                 return KeybindObj
             end
-            
+
             function Group:AddButton(Text, Callback)
                 local Btn = _0xd5fe._0x36b7("TextButton", {Parent = Container, BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Element, Size = UDim2.new(1,0,0,30), Text = Text, Font = _0xd5fe._0x0e5f.FontBold, TextColor3 = _0xd5fe._0x0e5f.Theme.Text, TextSize = 13, AutoButtonColor = false, BorderSizePixel = 0})
                 Reg(Text, Btn)
@@ -4084,6 +4147,217 @@ function _0xd5fe._0x0e5f.SaveManager:BuildCommunityConfigSection(tab, apiUrl)
         task.wait(2)
         refreshList()
     end)
+end
+
+---------------------------------------------------------------------
+-- KEYBIND LIST
+--
+-- Draggable HUD panel listing every bound keybind and whether its feature is
+-- on right now. It reads Library.Keybinds - the library's own registry, which
+-- both keybind constructors append to - so it can never drift from what the
+-- binds actually do.
+--
+-- Rows are rebuilt only when the content actually changes (a signature of
+-- key + name + state), so the 0.15 s poll costs one string compare on almost
+-- every tick instead of tearing down and rebuilding labels.
+--
+-- Styling follows the menu: Theme.Background panel, Outline stroke, rounded
+-- corners, an accent bar under the header, FontMono for the key chips and the
+-- theme's own Success / Error colours for the state.
+---------------------------------------------------------------------
+_0xd5fe._0x0e5f.KeybindListVisible = false
+
+do
+    local TextService = game:GetService("TextService")
+
+    local W_MIN, ROW_H, HEAD_H, FONT_SIZE = 160, 18, 30, 13
+    local KB = { frame = nil, list = nil, sig = nil, running = false }
+
+    local function hex(c)
+        return string.format("#%02X%02X%02X",
+            math.floor(c.R * 255 + 0.5),
+            math.floor(c.G * 255 + 0.5),
+            math.floor(c.B * 255 + 0.5))
+    end
+
+    local function esc(s)
+        return (tostring(s):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+    end
+
+    local function build()
+        local root = _0xd5fe._0x0e5f._ScreenGui
+        if not root then return false end
+
+        local f = _0xd5fe._0x36b7("Frame", {
+            Name = "KeybindList",
+            Parent = root,
+            BackgroundColor3 = _0xd5fe._0x0e5f.Theme.Background,
+            Position = UDim2.new(0, 20, 0.35, 0),
+            Size = UDim2.new(0, W_MIN, 0, HEAD_H + 8),
+            BorderSizePixel = 0,
+            Active = true,
+            ZIndex = 50,
+        })
+        _0xd5fe._0x36b7("UICorner", {Parent = f, CornerRadius = UDim.new(0, 8)})
+        _0xd5fe._0x36b7("UIStroke", {Parent = f, Color = _0xd5fe._0x0e5f.Theme.Outline, Thickness = 1})
+        _0xd5fe._0xfb1b(f, 0.55)
+        _0xd5fe._0x99aa(f, 0.15)
+
+        _0xd5fe._0x36b7("TextLabel", {
+            Parent = f,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 10, 0, 5),
+            Size = UDim2.new(1, -20, 0, 16),
+            Font = _0xd5fe._0x0e5f.FontBold,
+            Text = "Keybinds",
+            TextSize = 13,
+            TextColor3 = _0xd5fe._0x0e5f.Theme.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 51,
+        })
+
+        -- accent bar under the header, same idea as the menu's tab indicator
+        local bar = _0xd5fe._0x36b7("Frame", {
+            Parent = f,
+            BackgroundColor3 = _0xd5fe._0x0e5f.AccentColor,
+            Position = UDim2.new(0, 10, 0, HEAD_H - 7),
+            Size = UDim2.new(1, -20, 0, 1),
+            BorderSizePixel = 0,
+            ZIndex = 51,
+        })
+        _0xd5fe._0x36b7("UICorner", {Parent = bar, CornerRadius = UDim.new(1, 0)})
+
+        local list = _0xd5fe._0x36b7("Frame", {
+            Parent = f,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 10, 0, HEAD_H),
+            Size = UDim2.new(1, -20, 1, -(HEAD_H + 4)),
+            ZIndex = 51,
+        })
+        _0xd5fe._0x36b7("UIListLayout", {Parent = list, SortOrder = Enum.SortOrder.LayoutOrder})
+
+        -- drag the whole panel, using the same helper the menu window uses
+        _0xd5fe._0x02b5(f, f)
+
+        KB.frame, KB.list, KB.sig = f, list, nil
+        return true
+    end
+
+    -- Bound keys only - KeyCode.Unknown is what an "unset" default looks like,
+    -- so it counts as unbound rather than listing as "[Unknown]". A slot with
+    -- no IsOn predicate (a standalone bind whose state lives in the script)
+    -- shows the bind with no ON/OFF rather than claiming it is off.
+    local function entries()
+        local out = {}
+        for _, slot in ipairs(_0xd5fe._0x0e5f.Keybinds) do
+            local key = slot.Obj and slot.Obj.Value
+            if key == Enum.KeyCode.Unknown then key = nil end
+            if key then
+                local state = nil
+                if slot.IsOn then
+                    local ok, on = pcall(slot.IsOn)
+                    state = ok and on == true
+                end
+                out[#out + 1] = {
+                    key = _0xd5fe._0x0e5f.KeyName(key),
+                    name = slot.Name,
+                    on = state,
+                }
+            end
+        end
+        return out
+    end
+
+    local function addRow(order, rich, plain, color)
+        _0xd5fe._0x36b7("TextLabel", {
+            Parent = KB.list,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, ROW_H),
+            Font = _0xd5fe._0x0e5f.Font,
+            TextSize = FONT_SIZE,
+            TextColor3 = color or _0xd5fe._0x0e5f.Theme.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            RichText = true,
+            Text = rich,
+            LayoutOrder = order,
+            ZIndex = 51,
+        })
+        local ok, size = pcall(function()
+            return TextService:GetTextSize(plain, FONT_SIZE, _0xd5fe._0x0e5f.Font, Vector2.new(1000, ROW_H))
+        end)
+        return (ok and size and size.X) or (#plain * 7)
+    end
+
+    local function render()
+        if not (KB.frame and KB.frame.Parent) then
+            if not build() then return end
+        end
+
+        local list = entries()
+        local parts = {}
+        for i, e in ipairs(list) do
+            parts[i] = e.key .. "|" .. e.name .. "|" .. tostring(e.on)
+        end
+        local sig = table.concat(parts, ";")
+        if sig == KB.sig then return end -- nothing changed, nothing rebuilt
+        KB.sig = sig
+
+        for _, ch in ipairs(KB.list:GetChildren()) do
+            if ch:IsA("TextLabel") then ch:Destroy() end
+        end
+
+        local keyHex  = hex(_0xd5fe._0x0e5f.AccentColor)
+        local onHex   = hex(_0xd5fe._0x0e5f.Theme.Success)
+        local offHex  = hex(_0xd5fe._0x0e5f.Theme.Error)
+        local nameHex = hex(_0xd5fe._0x0e5f.Theme.Text)
+
+        local widest = 0
+        if #list == 0 then
+            widest = addRow(1, "No keybinds set", "No keybinds set", _0xd5fe._0x0e5f.Theme.TextDim)
+        else
+            for i, e in ipairs(list) do
+                local rich = string.format('<font color="%s">[%s]</font>  <font color="%s">%s</font>',
+                    keyHex, esc(e.key), nameHex, esc(e.name))
+                local plain = "[" .. e.key .. "]  " .. e.name
+                if e.on ~= nil then
+                    rich = rich .. string.format(': <font color="%s">%s</font>',
+                        e.on and onHex or offHex, e.on and "ON" or "OFF")
+                    plain = plain .. ": " .. (e.on and "ON" or "OFF")
+                end
+                widest = math.max(widest, addRow(i, rich, plain))
+            end
+        end
+
+        local rows = math.max(#list, 1)
+        KB.frame.Size = UDim2.new(0, math.max(W_MIN, widest + 24), 0, HEAD_H + rows * ROW_H + 8)
+    end
+
+    -- Library:SetKeybindList(true/false)
+    function _0xd5fe._0x0e5f:SetKeybindList(state)
+        _0xd5fe._0x0e5f.KeybindListVisible = state and true or false
+
+        if not state then
+            if KB.frame then KB.frame.Visible = false end
+            return
+        end
+
+        if not (KB.frame and KB.frame.Parent) then
+            if not build() then return end
+        end
+        KB.frame.Visible = true
+        KB.sig = nil
+
+        if KB.running then return end
+        KB.running = true
+        task.spawn(function()
+            while _0xd5fe._0x0e5f.KeybindListVisible do
+                pcall(render)
+                task.wait(0.15)
+            end
+            KB.running = false
+            if KB.frame then KB.frame.Visible = false end
+        end)
+    end
 end
 
 _0xd5fe._0x0e5f.SaveManager:BuildFolderTree()

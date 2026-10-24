@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.6",
+    Version = "v4.7",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -461,6 +461,20 @@ function _0xd5fe._0x0e5f:SetKeybindInfo(optionKey, info)
     return nil
 end
 
+-- Tracked connections, so Unload can actually drop them.
+--
+-- Only SERVICE-level signals need this. A connection on a GUI instance
+-- dies when that instance is destroyed, but UserInputService and
+-- RunService outlive the ScreenGui - so without tracking, every slider
+-- drag handler, the toggle-key listener and the cursor loop keep firing
+-- after an unload, referencing dead frames.
+_0xd5fe._0x0e5f._conns = {}
+_0xd5fe._0xUIConn = function(signal, fn)
+    local c = signal:Connect(fn)
+    table.insert(_0xd5fe._0x0e5f._conns, c)
+    return c
+end
+
 -- Acrylic registry: surfaces that fade with :SetAcrylic(true)
 _0xd5fe._0x0e5f._acrylicParts = {}
 _0xd5fe._0x99aa = function(inst, acrylicTransparency)
@@ -505,7 +519,7 @@ _0xd5fe._0x02b5 = function(trigger, object)
     trigger.InputChanged:Connect(function(input) 
         if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end 
     end)
-    _0xd5fe._0x8efd.InputChanged:Connect(function(input) 
+    _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputChanged, function(input) 
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
             _0xd5fe._0xa4bd:Create(object, TweenInfo.new(0.05), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
@@ -834,7 +848,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     
     _0xd5fe._0x8efd.MouseIconEnabled = false
     
-    local cursorConn = game:GetService("RunService").RenderStepped:Connect(function()
+    local cursorConn = _0xd5fe._0xUIConn(game:GetService("RunService").RenderStepped, function()
         -- Only update cursor when UI is visible to save FPS
         if not _0xd5fe._0x0e5f.Open then
             CustomCursor.Visible = false
@@ -972,7 +986,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
     StartResize(ResizeB, "B")
     StartResize(ResizeR, "R")
     
-    _0xd5fe._0x8efd.InputChanged:Connect(function(input)
+    _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputChanged, function(input)
         if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = Vector2.new(input.Position.X, input.Position.Y) - resizeStart
             local newWidth = startSize.X
@@ -989,7 +1003,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         end
     end)
     
-    _0xd5fe._0x8efd.InputEnded:Connect(function(input)
+    _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputEnded, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and resizing then
             resizing = false
             resizeType = nil
@@ -1410,7 +1424,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
         end
     end)
 
-    _0xd5fe._0x8efd.InputBegan:Connect(function(input, gameProcessed)
+    _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputBegan, function(input, gameProcessed)
         if gameProcessed then return end
         if _0xd5fe._0x0e5f.KeyMatches(input, _0xd5fe._0x0e5f.ToggleKey) then
             _0xd5fe._0x0e5f.Open = not _0xd5fe._0x0e5f.Open 
@@ -1639,7 +1653,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
 
         local pendingKey = nil
         local con
-        con = _0xd5fe._0x8efd.InputBegan:Connect(function(input, gameProcessed)
+        con = _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputBegan, function(input, gameProcessed)
             local key
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 key = input.KeyCode
@@ -2205,7 +2219,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                             Apply()
                         end
                     end)
-                    _0xd5fe._0x8efd.InputChanged:Connect(function(input)
+                    _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputChanged, function(input)
                         if input.UserInputType == Enum.UserInputType.MouseMovement then
                             if SVDragging then
                                 local pos = (Vector2.new(input.Position.X, input.Position.Y) - SVPicker.AbsolutePosition) / SVPicker.AbsoluteSize
@@ -2218,7 +2232,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                             end
                         end
                     end)
-                    _0xd5fe._0x8efd.InputEnded:Connect(function(input)
+                    _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputEnded, function(input)
                         if input.UserInputType == Enum.UserInputType.MouseButton1 then
                             SVDragging = false
                             HueDragging = false
@@ -2284,7 +2298,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                     end)
 
                     -- pressing the bound key flips the toggle
-                    _0xd5fe._0x8efd.InputBegan:Connect(function(input, gameProcessed)
+                    _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputBegan, function(input, gameProcessed)
                         if gameProcessed then return end
                         if _0xd5fe._0x0e5f.KeyMatches(input, BoundKey) then
                             State = not State
@@ -2441,8 +2455,8 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                          Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1)))
                      end
                  end)
-                 _0xd5fe._0x8efd.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end)
-                 _0xd5fe._0x8efd.InputChanged:Connect(function(i) if Dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1))) end end)
+                 _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputEnded, function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end)
+                 _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputChanged, function(i) if Dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Set(Min + ((Max-Min) * math.clamp((i.Position.X - Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X, 0, 1))) end end)
                  Set(Default or Min)
 
                  _0xd5fe._0x0e5f.Options[Text] = SliderObj
@@ -2963,7 +2977,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                             UpdateColor()
                         end
                     end)
-                    local svConn = _0xd5fe._0x8efd.InputChanged:Connect(function(input)
+                    local svConn = _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputChanged, function(input)
                         if SVDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
                             local inputPos = Vector2.new(input.Position.X, input.Position.Y)
                             local pos = (inputPos - SVPicker.AbsolutePosition) / SVPicker.AbsoluteSize
@@ -2982,7 +2996,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                             UpdateColor()
                         end
                     end)
-                    local hueConn = _0xd5fe._0x8efd.InputChanged:Connect(function(input)
+                    local hueConn = _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputChanged, function(input)
                         if HueDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
                             local pos = (input.Position.X - HuePicker.AbsolutePosition.X) / HuePicker.AbsoluteSize.X
                             CurrentColor.H = math.clamp(pos, 0, 1)
@@ -2990,7 +3004,7 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         end
                     end)
                     
-                    local endConn = _0xd5fe._0x8efd.InputEnded:Connect(function(input)
+                    local endConn = _0xd5fe._0xUIConn(_0xd5fe._0x8efd.InputEnded, function(input)
                         if input.UserInputType == Enum.UserInputType.MouseButton1 then
                             SVDragging = false
                             HueDragging = false
@@ -4427,5 +4441,48 @@ do
 end
 
 _0xd5fe._0x0e5f.SaveManager:BuildFolderTree()
+
+
+-- Tear the library down completely.
+--
+-- This did not exist, so every caller of Library:Unload() was erroring on
+-- a nil value - which also meant the ScreenGui was never destroyed and the
+-- menu stayed on screen after an unload.
+--
+-- Order matters: restore the mouse FIRST, so a failure further down cannot
+-- leave the user with no cursor. MouseIconEnabled is set false while the
+-- window is open and is the only piece of global state this library
+-- changes outside its own ScreenGui.
+function _0xd5fe._0x0e5f:Unload()
+    if self._unloaded then return end
+    self._unloaded = true
+
+    pcall(function() _0xd5fe._0x8efd.MouseIconEnabled = true end)
+
+    -- Stops the keybind-list render loop, which polls this flag.
+    self.KeybindListVisible = false
+
+    for _, c in ipairs(self._conns) do
+        pcall(function() c:Disconnect() end)
+    end
+    self._conns = {}
+
+    if self.CursorConnection then
+        pcall(function() self.CursorConnection:Disconnect() end)
+        self.CursorConnection = nil
+    end
+
+    if self._ScreenGui then
+        pcall(function() self._ScreenGui:Destroy() end)
+        self._ScreenGui = nil
+    end
+
+    -- Drop the registries. They hold instance references, so leaving them
+    -- populated keeps destroyed frames alive and would make a re-load see
+    -- stale entries.
+    self._acrylicParts = {}
+    self.Keybinds = {}
+    self.Options = {}
+end
 
 return _0xd5fe._0x0e5f

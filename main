@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.8",
+    Version = "v4.7",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -528,30 +528,7 @@ _0xd5fe._0x02b5 = function(trigger, object)
 end
 
 -- Notification System with Icons
--- Notifications must never be able to break their caller.
---
--- Autoload was applying NOTHING. SaveManager:Load pcalls each option's Set, so
--- a callback that throws is caught, warned and skipped - and nearly every
--- toggle in the script ends its callback with a Notify. On the thread autoload
--- runs on, Instance.new raises "The current thread cannot access 'Instance'
--- (lacking capability Plugin)", so every one of ~110 toggles threw inside
--- Notify, was skipped, and never applied its saved value. The console filled
--- with "Failed to load <name>" and the config looked like it had not saved.
---
--- Two guards:
---  * silent while a config is loading. A hundred toasts for settings the user
---    did not just change is noise anyway, and it keeps Instance.new off that
---    thread entirely, which is the actual fix.
---  * pcall around the rest, so a notification can never again take a feature
---    down with it. A toast is cosmetic; whatever called it is not.
 function _0xd5fe._0x0e5f:Notify(Title, Content, Duration, IconType)
-    if _0xd5fe._0x0e5f._isLoadingConfig then return end
-    pcall(function()
-        _0xd5fe._0x0e5f:_NotifyImpl(Title, Content, Duration, IconType)
-    end)
-end
-
-function _0xd5fe._0x0e5f:_NotifyImpl(Title, Content, Duration, IconType)
     if not _0xd5fe._0xd4c2 then return end
     Duration = Duration or 3
     IconType = IconType or "info"
@@ -3358,14 +3335,6 @@ function _0xd5fe._0x0e5f.SaveManager:Load(name)
     local success, decoded = pcall(HttpService.JSONDecode, HttpService, readfile(file))
     if not success then return false, "decode error" end
     
-    -- Checked BEFORE the flag goes up. The loop below walks decoded.objects,
-    -- and a file without it throws - which would leave _isLoadingConfig set
-    -- forever, and Notify is silent while that is true, so every notification
-    -- in the session would vanish with no clue why.
-    if type(decoded) ~= "table" or type(decoded.objects) ~= "table" then
-        return false, "malformed config"
-    end
-
     local loadedCount = 0
     
     -- Set loading flag so toggle callbacks can skip side-effects (e.g. safespot teleport)

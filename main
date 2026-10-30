@@ -30,7 +30,7 @@ _0xd5fe._0x740e = game:GetService("HttpService")
 _0xd5fe._0x0e5f = {
     -- bump this when publishing; print(Library.Version) to confirm which build
     -- the executor actually fetched (raw.githubusercontent caches for ~5 min)
-    Version = "v4.7",
+    Version = "v4.7.1",
     Open = true,
     ToggleKey = Enum.KeyCode.RightControl,
     AccentColor = Color3.fromRGB(96, 76, 255),
@@ -2561,11 +2561,24 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         if child:IsA("TextButton") then child:Destroy() end
                     end
                     OptionRefs = {}
-                    Options = newOptions
+                    Options = newOptions or {}
                     for _, opt in pairs(Options) do
                         CreateOption(opt)
                     end
                     UpdateSelectedVisual()
+
+                    -- RESIZE AN OPEN LIST. The height is only worked out in the
+                    -- open handler, and ListFrame clips its descendants, so a
+                    -- refresh while the list was open left the new options inside
+                    -- the OLD height. Opening a player dropdown while few or no
+                    -- players were listed and then refreshing it left a 6px
+                    -- sliver with everything clipped out of sight, which reads as
+                    -- the dropdown having gone blank. Only the dropdowns whose
+                    -- option count changes at runtime could hit it, which is why
+                    -- it only ever showed up on the player ones.
+                    if Open then
+                        ListFrame.Size = UDim2.new(1, 0, 0, math.min(#Options * 28 + 6, 150))
+                    end
                 end
                 
                 Btn.MouseEnter:Connect(function() if HoverBlocked(Btn) then return end 
@@ -2724,11 +2737,19 @@ function _0xd5fe._0x0e5f:CreateWindow(Settings)
                         if child:IsA("TextButton") then child:Destroy() end
                     end
                     OptionButtons = {}
-                    Options = newOptions
+                    Options = newOptions or {}
                     for _, opt in pairs(Options) do
                         CreateOption(opt)
                     end
                     UpdateText()
+
+                    -- Same clipped-open-list fix as the single Dropdown above;
+                    -- this is the one the silent aim whitelist uses, and it is
+                    -- refreshed on PlayerAdded/PlayerRemoving, so it can be
+                    -- rebuilt while the user is looking at it.
+                    if Open then
+                        ListFrame.Size = UDim2.new(1, 0, 0, math.min(#Options * 28 + 6, 180))
+                    end
                 end
                 
                 Btn.MouseEnter:Connect(function() if HoverBlocked(Btn) then return end 
